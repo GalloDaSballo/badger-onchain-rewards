@@ -18,7 +18,6 @@ compiler:
     remappings:
       # - "@openzeppelin-contracts-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@3.4.0/contracts/"
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.4.1"
-
 # reports:
 #   exclude_contracts:
 #     - SafeMath

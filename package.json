@@ -1,11 +1,11 @@
 {
-    "name": "badger-onchain-rewards",
-    "devDependencies": {
-        "commitlint": "^14.1.0",
-        "prettier": "^2.4.1",
-        "prettier-plugin-solidity": "^1.0.0-beta.19"
-    },
-    "scripts": {
-        "lint:check": "prettier --check '(contracts|interfaces)/**/*.(sol|json)'"
-    }
+  "name": "badger-onchain-rewards",
+  "devDependencies": {
+    "commitlint": "^14.1.0",
+    "prettier": "^2.4.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.19"
+  },
+  "scripts": {
+    "lint:check": "prettier --check '(contracts|interfaces)/**/*.(sol|json)'"
+  }
 }
