@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 contract RewardsManager {
+    using SafeERC20 for IERC20;
 
     uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
@@ -85,12 +89,18 @@ contract RewardsManager {
     // And we accrue users on any shares changes
     // Then we do not need
 
-    mapping(uint256 => mapping(address => uint256)) public totalSupply; // totalSupply[epochId][vault] // totalSupply for each vault at that time // Used when we switch to new epoch as caching mechanism
-
     mapping(uint256 => mapping(address => mapping(address => uint256))) additionalReward; // additionalReward[epochId][vaultAddress][tokenAddress] = AMOUNT 
 
-    function setNextEpoch(uint256 blockstart, uint256 blockEnd) {
-        require(msg.sender == governance) // dev: !gov
+    address public governance;
+    address public constant BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
+
+    constructor (address _governance)
+    {
+        governance = _governance;
+    } 
+
+    function setNextEpoch(uint256 blockstart, uint256 blockEnd) external {
+        require(msg.sender == governance); // dev: !gov
         
         // TODO: Verify previous epoch ended
 
@@ -116,7 +126,7 @@ contract RewardsManager {
     }
     // NOTE: What happens if you have no points for epoch
 
-    function setEmission(uint256 epochId, address vault, uint256 badgerAmount) external {
+    function setEmission(uint256 epochId, address vault, uint256 badgerAmount) internal {
         require(epochId >= currentEpoch); // dev: already ended
 
         // require(badgerEmissionPerEpochPerVault[epochId][vault] == 0); // dev: already set
@@ -125,17 +135,17 @@ contract RewardsManager {
 
         // Check change in balance just to be sure
         uint256 startBalance = IERC20(BADGER).balanceOf(address(this));  
-        IERC20(BADGER).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(BADGER).safeTransferFrom(msg.sender, address(this), badgerAmount);
         uint256 endBalance = IERC20(BADGER).balanceOf(address(this));
  
         badgerEmissionPerEpochPerVault[epochId][vault] += endBalance - startBalance;
     }
 
-    function setEmissions(uint256 epochId, address[] vaults, uint256[] badgerAmounts) external {
-        require(vaults.length == badgerAmounts); // dev: length mistamtch
+    function setEmissions(uint256 epochId, address[] memory _vaults, uint256[] memory badgerAmounts) external {
+        require(_vaults.length == badgerAmounts.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
-            setEmission(epochId, vaults[i], badgerAmounts[i]);   
+            setEmission(epochId, _vaults[i], badgerAmounts[i]);   
         }
     }
 
@@ -159,8 +169,8 @@ contract RewardsManager {
     // That means that we're tracking
 
 
-    function _getEmissionIndex(address vault) internal returns (uint256) {
-        return points[currentEpoch][vault];
+    function _getEmissionIndex(address vault, address user) internal returns (uint256) {
+        return points[currentEpoch][vault][user];
     }
     // Total Points per epoch = Total Deposits * Total Points per Second * Seconds in Epoch
 
@@ -171,17 +181,16 @@ contract RewardsManager {
         address vault = msg.sender; // Only the vault can change these
 
         if (_from == address(0)) {
-            _handleDeposit(vault, to, amount);
+            _handleDeposit(vault, _to, _amount);
         } else if (_to == address(0)) {
-            _handleWithdrawal(vault, from, amount);
+            _handleWithdrawal(vault, _from, _amount);
         } else {
-            _handleTransfer(vault, from, to, amount);
+            _handleTransfer(vault, _from, _to, _amount);
         }
     }
 
 
     /// @dev handles a deposit for vault, to address of amount
-    /// @notice,
     function _handleDeposit(address vault, address to, uint256 amount) internal {
         _accrueUser(vault, to);
         
@@ -218,15 +227,15 @@ contract RewardsManager {
 
     /// @dev Accrue points gained during this epoch
     /// @notice This is called for both receiving and sending
-    function _accrueUser(address vault, address user) {
+    function _accrueUser(address vault, address user) internal {
         // Note ideally we have a deposit from currentEpoch
         uint256 lastUserDepositEpoch = lastUserAccrue[vault][user];
 
         // However that could be zero, hence we check for lastUserAccrue
-        uint256 toMultiply = _getBalanceAtCurrentEpoch();
+        uint256 toMultiply = _getBalanceAtCurrentEpoch(vault, user);
         // Fast fail here, if balance is 0, just update timestamp and be done with it
 
-        uint256 timeInEpochSinceLastAccrue = _getTimeInEpochFromLastAccrue();
+        uint256 timeInEpochSinceLastAccrue = _getTimeInEpochFromLastAccrue(vault, user);
 
 
         // Run the math and update the system
@@ -293,11 +302,11 @@ contract RewardsManager {
         // TO avoid extra consuption
         if(lastBalanceChangeEpoch != currentEpoch) {
             // We update their balance at current only if we haven't already
-            shares[currentEpoch][vault][to] = shares[lastBalanceChangeEpoch][vault][user];
+            shares[currentEpoch][vault][user] = shares[lastBalanceChangeEpoch][vault][user];
         }
 
         // Since we always update their balance at current epoch, just return that
-        return shares[currentEpoch][vault][to];
+        return shares[currentEpoch][vault][user];
 
 
 
@@ -321,17 +330,17 @@ contract RewardsManager {
 
     }
 
-    function _getTimeInEpochFromLastAccrue() internal returns (uint256) {
+    function _getTimeInEpochFromLastAccrue(address vault, address user) internal returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrue[vault][user];
 
         // Change in balance happened this epoch, just ensure we are in active epoch and return difference
         if(lastBalanceChangeTime > epochs[currentEpoch].blockstart) {
             require(block.timestamp < epochs[currentEpoch].blockEnd, "No epoch active"); // I believe this require can be helpful if we're not in an active epoch, which hopefully we can avoid
-            return lastBalanceChangeTime - epochs[currentEpoch].blockStart; // Also avoids overflow
+            return lastBalanceChangeTime - epochs[currentEpoch].blockstart; // Also avoids overflow
         }
 
         // Otherwise we return max time which is current - epochStart
-        return block.timestamp - epochs[currentEpoch].blockStart;
+        return block.timestamp - epochs[currentEpoch].blockstart;
     }
 
     // YOU DO NOT NEED TO ACCRUE OLD EPOCHS UNTIL YOU REDEEM
