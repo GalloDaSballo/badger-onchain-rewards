@@ -1,28 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+
 contract RewardsManager {
+    using SafeERC20 for IERC20;
+
+    /// TODO TODO:
+    /// 3 Functions to get right
+    /// startNextEpoch
+    /// accrueUser
+    /// claimRewards
 
     uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
+    address public BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
+    address immutable governance;
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
 
-    address[] public vaults; // list of vaults, just used for iterations and convenience
-
+    address[] public registeredVaults; // list of vaults, just used for iterations and convenience
+    // NOTE: Probably change to OpenZeppelin IterableSet
+    
+    mapping(uint256 => Epoch) public epochs; // Epoch data for each epoch epochs[epochId]
+    // id is implicit in the list
     struct Epoch {
-        uint256 id; // Probably implicit in list of epochs
-        uint256 blockstart;
-        uint256 blockEnd;
+        uint256 startTimestamp;
+        uint256 endTimestamp;
     }
-
-    struct EpochVaultRewards {
-        uint256 epochId;
-        address vault;
-        uint256 totalBadger;
-    }
-
     uint256 public currentEpoch = 1; // NOTE: Epoch 0 means you have withdrawn
 
-    mapping(uint256 => Epoch) public epochs; // Epoch data for each epoch epochs[epochId]
     mapping(uint256 => mapping(address => uint256)) public badgerEmissionPerEpochPerVault; // Epoch data for each epoch badgerEmissionPerEpochPerVault[epochId][vaultAddress]
     
 
@@ -31,8 +37,8 @@ contract RewardsManager {
     
     mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch totalPoints[epochId][vaultAddress]
 
-    mapping(address => mapping(address => uint256)) lastAccruedTimestamp; // Last Epoch in which user shares, used to calculate rewards in epochs without interaction lastUserAccrue[vaultAddress][userAddress]
-    mapping(address => mapping(address => uint256)) lastUserAccrue; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrue[vaultAddress][userAddress]
+    mapping(uint256 => mapping(address => uint256)) lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastUserAccrueTimestamp[epochId][vaultAddress]
+    mapping(address => mapping(address => uint256)) lastUserAccrueTimestamp; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrueTimestamp[vaultAddress][userAddress]
     mapping(address => uint256) lastVaultDeposit; // Last Epoch in which any user deposited in the vault, used to know if vault needs to be brought to new epoch
     // AFAIK changing storage to the same value is a NO-OP and won't cost extra gas
     // Or just have the check and skip the op if need be
@@ -44,7 +50,7 @@ contract RewardsManager {
 
 
     // NOTE ABOUT ARCHITECTURE
-    // This contract is fundamentally tracking the balances on all vaults for all users
+    // This contract is fundamentally tracking the balances on all registeredVaults for all users
     // This basically means we have duplicated logic, we could do without by simply adding this to the vault
     // Adding it may also allow to solve Yield Theft issues as we're accounting for value * time as a way to reward more fairly
     // NOTE: Pool Together has 100% gone through these ideas, we have 4 public audits to read through
@@ -85,42 +91,97 @@ contract RewardsManager {
     // And we accrue users on any shares changes
     // Then we do not need
 
-    mapping(uint256 => mapping(address => uint256)) public totalSupply; // totalSupply[epochId][vault] // totalSupply for each vault at that time // Used when we switch to new epoch as caching mechanism
+    mapping(uint256 => mapping(address => mapping(address => uint256))) additionalReward; // additionalReward[epochId][vaultAddress][tokenAddress] = AMOUNT
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) additionalReward; // additionalReward[epochId][vaultAddress][tokenAddress] = AMOUNT 
+    constructor() {
+        governance = msg.sender;
+    }
 
-    function setNextEpoch(uint256 blockstart, uint256 blockEnd) {
-        require(msg.sender == governance) // dev: !gov
-        
-        // TODO: Verify previous epoch ended
+    /// @dev Add a vault to the list of tracked vaults
+    /// @notice this is used to accrue the vault at the end of the epoch
+    function addVault(address newVault) external {
+        require(msg.sender == governance); // dev: !gov
+        registeredVaults.push(newVault); // TODO: Change to OpenZeppelin
+    }
 
-        // Lock reward value per vault per epoch
 
-        // Due to Invariant:
+    // TODO: Generalize the badger emission to any token
+    // Honestly badger can be generalized to the any token structure, avoiding the need for extra mappings
+
+    /// @dev Adds a new epoch and starts it
+    /// 
+    function startNextEpoch(uint256 startTimestamp) external {
+        require(msg.sender == governance); // dev: !gov
+
+        // End previous epoch math
+        // NOTE Due to Invariant:
         // totalSupply is same as last changed
         // because all deposits are same since last change
         // We can calculate the maxPoints this way, which means we have the exact total amount of points
         // Each user can be accrued just when they claim to save them the extra gas cost
+
+        address[] memory cachedVaults = registeredVaults; // Copy to memory to save gas
+        uint256 length = cachedVaults.length; // Save lenght to memory to save gas because index costs an extra ADD
+        uint256 cachedCurrentEpoch = currentEpoch; // Same deal, save gas
+        for(uint256 i = 0; i < length; i++) {
+            address cachedVault = cachedVaults[i];
+            uint256 lastTime = lastAccruedTimestamp[cachedCurrentEpoch][cachedVault];
+            // TODO: use lastTime to figure how much to accrue,
+            // NOTE: If vault was never accrued, max is SECONDS_PER_EPOCH
+            // NOTE: Value must be less than SECONDS_PER_EPOCH
+            totalPoints[cachedCurrentEpoch][cachedVault] += lastTime * totalSupply[cachedCurrentEpoch][cachedVault];
+        }
+        // INVARIANT: totalSupply changes on every withdraw and deposit
+        // If it hasn't changed, it means nothing happened this epoch
+        // NOTE: Worse case scenario (no interaction) in which case you do need to fetch the value from prev-epoch
+        // NOTE: I any other case, totalPoints is just timeLeft * totalSupply
+
+
         
 
         // if current epoch has no points, it means that this epoch had zero transfer, withdrawals, etc
         // I don't believe this will happen in practice, but in the case it does
         // Points for each person are equal to deposit * multiplier
-        // Total points are just totalSupply * multiplier
+        // Total points are just totalSupply * multiplier * timeLeft since last accrue
 
+        // Cache and pre-increment to change storage while saving gas laters
+        uint256 newEpochId = ++currentEpoch;
 
-        // Start new epoch
-        ++currentEpoch;
+        uint256 x = 1;
+        epochs[newEpochId] = Epoch(
+            startTimestamp,
+            startTimestamp + SECONDS_PER_EPOCH
+        );
+        // Epochs have fixed duration
 
-        // Rewards can be specified until end of new epoch
+        // Rewards can be specified until end of this new epoch
     }
     // NOTE: What happens if you have no points for epoch
 
-    function setEmission(uint256 epochId, address vault, uint256 badgerAmount) external {
+    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, uint256[][] calldata tokens) external{
+        uint256 epochLength = epochsToClaim.length;
+        uint256 vaultLength = vaults.length;
+        uint256 tokensLength = tokens.length;
+        require(epochLength == vaultLength && epochLength == tokensLength, "Length mismatch");
+
+        // Given an epoch and a vault
+        // I have to accrue until end
+        // I then compare the point to total points
+        // Then, given the list of tokens I execute the transfers
+        // To avoid re-entrancy we always change state before sending
+        // Also this function needs to have re-entancy checks as well
+    }
+
+
+    /// @dev add new badger emission for the specific epoch
+    /// @notice you can add rewards for this epoch or future epochs
+    /// @notice we don't allow retroactivelly setting the main reward 
+    /// @notice as that could cause certain users (that already claimed) to loose the new rewards
+    /// @notice you can only add more, no turning back once you sent these
+    function setEmission(uint256 epochId, address vault, uint256 amount) public {
         require(epochId >= currentEpoch); // dev: already ended
 
-        // require(badgerEmissionPerEpochPerVault[epochId][vault] == 0); // dev: already set
-        // NOTE: Instead of requiring emission, let's just increase the amount, it gives more flexibility
+        // NOTE: Instead of requiring emission, we just increase the amount, it gives more flexibility
         // Basically you can only get rugged in the positive, cannot go below the amount provided
 
         // Check change in balance just to be sure
@@ -131,14 +192,19 @@ contract RewardsManager {
         badgerEmissionPerEpochPerVault[epochId][vault] += endBalance - startBalance;
     }
 
-    function setEmissions(uint256 epochId, address[] vaults, uint256[] badgerAmounts) external {
-        require(vaults.length == badgerAmounts); // dev: length mistamtch
+    /// @dev Utility function to specify a group of emissions for the specified epoch
+    /// @notice This is how you'd typically set up emissions for a specific epoch
+    function setEmissions(uint256 epochId, address[] calldata vaults, uint256[] calldata badgerAmounts) external {
+        require(vaults.length == badgerAmounts.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
             setEmission(epochId, vaults[i], badgerAmounts[i]);   
         }
     }
 
+    /// @dev Add an additional reward for the current epoch
+    /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
+    /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     function sendExtraReward(address vault, address extraReward, uint256 amount) external {
         // NOTE: This function can be called by anyone, effectively allowing for bribes / airdrops to vaults
 
@@ -149,30 +215,24 @@ contract RewardsManager {
 
         additionalReward[currentEpoch][vault][extraReward] += endBalance - startBalance;
     }
-    // NOTE: If you wanna do multiple rewards, just do a helper contract
+    // NOTE: If you wanna do multiple rewards, just do a helper contract to call `sendExtraReward` multiple times
 
 
 
-    // NOTE: You have a growth factor when you deposit, that is based on the % of the deposit you made at the time
-    // NOTE: If you go from epoch x to epoch y, then how do we know
-    // If you don't change, then you have the same points, it's the cap of points that can go up or down based on vault interaction
-    // That means that we're tracking
-
-
-    function _getEmissionIndex(address vault) internal returns (uint256) {
-        return points[currentEpoch][vault];
-    }
     // Total Points per epoch = Total Deposits * Total Points per Second * Seconds in Epoch
 
 
-
-    function notifyTransfer(uint256 _amount, address _from, address _to) external {
+    /// @dev This is used by external contracts to notify a change in balances
+    /// @notice The handling of changes requires accruing points until now
+    /// @notice After that, just change the balances
+    /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
+    function notifyTransfer(uint256 amount, address from, address to) external {
         // NOTE: Anybody can call this because it's indexed by msg.sender
         address vault = msg.sender; // Only the vault can change these
 
-        if (_from == address(0)) {
+        if (from == address(0)) {
             _handleDeposit(vault, to, amount);
-        } else if (_to == address(0)) {
+        } else if (to == address(0)) {
             _handleWithdrawal(vault, from, amount);
         } else {
             _handleTransfer(vault, from, to, amount);
@@ -181,7 +241,6 @@ contract RewardsManager {
 
 
     /// @dev handles a deposit for vault, to address of amount
-    /// @notice,
     function _handleDeposit(address vault, address to, uint256 amount) internal {
         _accrueUser(vault, to);
         
@@ -192,6 +251,7 @@ contract RewardsManager {
         totalSupply[currentEpoch][vault] += amount;
     }
 
+    /// @dev handles a withdraw for vault, from address of amount
     function _handleWithdrawal(address vault, address from, uint256 amount) internal {
         _accrueUser(vault, from);
 
@@ -203,6 +263,7 @@ contract RewardsManager {
 
     }
 
+    /// @dev handles a transfer for vault, from address to address of amount
     function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
         // Accrue points for from, so they get rewards
         _accrueUser(vault, from);
@@ -217,16 +278,18 @@ contract RewardsManager {
     }
 
     /// @dev Accrue points gained during this epoch
-    /// @notice This is called for both receiving and sending
-    function _accrueUser(address vault, address user) {
-        // Note ideally we have a deposit from currentEpoch
-        uint256 lastUserDepositEpoch = lastUserAccrue[vault][user];
+    /// @notice This is called for both receiving, sending, depositing and withdrawing, any time the user balance changes
+    /// @notice To properly accrue for this epoch:
+    /// @notice Figure out the time passed since last accrue (max is start of epoch)
+    /// @notice Figure out their points (their current balance) (before we update)
+    /// @notice Just multiply the points * the time, those are the points they've earned
+    function _accrueUser(address vault, address user) private {
+        // However that could be zero, hence we check for lastUserAccrueTimestamp
+        uint256 toMultiply = _getBalanceAtCurrentEpoch(vault, user);
 
-        // However that could be zero, hence we check for lastUserAccrue
-        uint256 toMultiply = _getBalanceAtCurrentEpoch();
-        // Fast fail here, if balance is 0, just update timestamp and be done with it
+        // TODO Fast fail here, if balance is 0, just update timestamp and be done with it
 
-        uint256 timeInEpochSinceLastAccrue = _getTimeInEpochFromLastAccrue();
+        uint256 timeInEpochSinceLastAccrue = _getTimeInEpochFromLastAccrue(vault, user);
 
 
         // Run the math and update the system
@@ -239,7 +302,7 @@ contract RewardsManager {
         // At end of epoch userPoints / totalPoints is the percentage the user can receive of rewards (valid for any reward)
 
         // Set last time for updating the user
-        lastUserAccrue[vault][user] = block.timestamp;
+        lastUserAccrueTimestamp[vault][user] = block.timestamp;
     }
 
 
@@ -249,7 +312,7 @@ contract RewardsManager {
     function _getBalanceAtCurrentEpoch(address vault, address user) internal returns (uint256) {
 
         // Time Last Known Balance has changed
-        uint256 lastBalanceChangeTime = lastUserAccrue[vault][user];
+        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[vault][user];
         
         uint256 lastBalanceChangeEpoch = 0; // 0 means it never changed
         // If we return 0, it means that this is their first deposit
@@ -276,11 +339,17 @@ contract RewardsManager {
         // No one will ever deposit if they have to pay 1k (and that's just for this btw)
 
         // Find Epoch
-        for(uint256 i = currentEpoch; i >= 0; i--){
+        // TODO: Gas - Iterate over memory to save gas
+        // TODO: Do we have a epoch 0??? Don't think so
+        for(uint256 i = currentEpoch; i > 0; i--){
+            // NOTE: We have to loop because while we know the length of an epoch 
+            // we don't have a guarantee of when it starts
+
             // We're going backwards from currentEpoch to 0, once we get to zero we know we didn't find
-            if(epochs[i].blockstart >= lastBalanceChangeTime && lastBalanceChangeTime < epochs[i].blockEnd){
+            if(epochs[i].startTimestamp >= lastBalanceChangeTime && lastBalanceChangeTime < epochs[i].endTimestamp){
                 // It's in the 2 times, this is the epoch we're looking for
                 lastBalanceChangeEpoch = i;
+                break; // Break to save gas, we're done
             }
         }
 
@@ -293,17 +362,17 @@ contract RewardsManager {
         // TO avoid extra consuption
         if(lastBalanceChangeEpoch != currentEpoch) {
             // We update their balance at current only if we haven't already
-            shares[currentEpoch][vault][to] = shares[lastBalanceChangeEpoch][vault][user];
+            shares[currentEpoch][vault][user] = shares[lastBalanceChangeEpoch][vault][user];
         }
 
         // Since we always update their balance at current epoch, just return that
-        return shares[currentEpoch][vault][to];
+        return shares[currentEpoch][vault][user];
 
 
 
         // Index of epochs should be fairly easy to get as long as we force each epoch to properly start at correct time and end at correct time
         // That's because it will be equal to
-        // last_epoch_count = (START + lastUserAccrue) / epoch_length
+        // last_epoch_count = (START + lastUserAccrueTimestamp) / epoch_length
         // This assumes each epoch starts right after the previous one ends, which is currently not enforced
         // This may end up saving gas, so we may end up doing it
 
@@ -321,17 +390,24 @@ contract RewardsManager {
 
     }
 
-    function _getTimeInEpochFromLastAccrue() internal returns (uint256) {
-        uint256 lastBalanceChangeTime = lastUserAccrue[vault][user];
+
+    // IF we add a way to track first interaction and last interaction
+    
+    /// @dev Given a vault and user, figure out the time that passed in this epoch since last accrue
+    /// @notice Invariant: max is SECONDS_PER_EPOCH
+    /// @notice Invariant: If user was never accrued this epoch, then their time is the current epochDuration
+    function _getTimeInEpochFromLastAccrue(address vault, address user) internal returns (uint256) {
+        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[vault][user];
 
         // Change in balance happened this epoch, just ensure we are in active epoch and return difference
-        if(lastBalanceChangeTime > epochs[currentEpoch].blockstart) {
-            require(block.timestamp < epochs[currentEpoch].blockEnd, "No epoch active"); // I believe this require can be helpful if we're not in an active epoch, which hopefully we can avoid
-            return lastBalanceChangeTime - epochs[currentEpoch].blockStart; // Also avoids overflow
+        // TODO: Think about the require to decide if it's worth doing
+        if(lastBalanceChangeTime > epochs[currentEpoch].endTimestamp) {
+            require(block.timestamp < epochs[currentEpoch].endTimestamp, "No epoch active"); // I believe this require can be helpful if we're not in an active epoch, which hopefully we can avoid
+            return lastBalanceChangeTime - epochs[currentEpoch].startTimestamp; // Also avoids overflow
         }
 
         // Otherwise we return max time which is current - epochStart
-        return block.timestamp - epochs[currentEpoch].blockStart;
+        return block.timestamp - epochs[currentEpoch].startTimestamp;
     }
 
     // YOU DO NOT NEED TO ACCRUE OLD EPOCHS UNTIL YOU REDEEM
