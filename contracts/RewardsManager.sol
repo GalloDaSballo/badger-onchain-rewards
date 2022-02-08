@@ -230,23 +230,24 @@ contract RewardsManager {
         pointsWithdrawn[epochId][vault][msg.sender][token] += pointsLeft;
 
 
-        token.safeTransfer(msg.sender, tokensForUser);
+        IERC20(token).safeTransfer(msg.sender, tokensForUser);
     }
 
     /// @dev Utility function to specify a group of emissions for the specified epoch
     /// @notice This is how you'd typically set up emissions for a specific epoch
-    function setEmissions(uint256 epochId, address[] calldata vaults, uint256[] calldata amounts) external {
+    function setEmissions(uint256 epochId, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
         require(vaults.length == amounts.length); // dev: length mistamtch
+        require(vaults.length == tokens.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
-            setEmission(epochId, vaults[i], amounts[i]);   
+            setEmission(epochId, tokens[i], vaults[i], amounts[i]);   
         }
     }
 
     /// @dev Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
-    function setEmission(uint256 epochId, address vault, address extraReward, uint256 amount) external {
+    function setEmission(uint256 epochId, address vault, address extraReward, uint256 amount) public {
         require(epochId >= currentEpoch);
 
         // Check change in balance to support `feeOnTransfer` tokens as well
