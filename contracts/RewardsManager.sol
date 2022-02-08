@@ -24,7 +24,9 @@ contract RewardsManager {
     uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     address public BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
+    
 
+    uint256 private constant MAX_BPS = 10_000;
     
     mapping(uint256 => Epoch) public epochs; // Epoch data for each epoch epochs[epochId]
     // id is implicit in the list
@@ -205,6 +207,7 @@ contract RewardsManager {
     }
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
+    // TODO: Actually check if it makes sense and it's correct
     function claimReward(uint256 epochId, address vault, address token) public {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
@@ -214,11 +217,26 @@ contract RewardsManager {
 
         // Now that they are accrue, just use the points to estimate reward and send
         uint256 userPoints = points[epochId][vault][msg.sender];
-        uint256 vaultTotalPoints = totalPoints[epochId][vault]
+        uint256 vaultTotalPoints = totalPoints[epochId][vault];
 
         uint256 pointsLeft = userPoints - pointsWithdrawn[epochId][vault][msg.sender][token];
 
-        // TODO: Think about the ratio here
+        if(pointsLeft == 0){
+            return;
+        }
+
+        // We got some stuff left // Use ratio to calculate what we got left
+        uint256 totalAdditionalReward = additionalReward[epochId][vault][token];
+
+        // We multiply just to avoid rounding
+        uint256 ratioForPointsLeft = MAX_BPS * pointsLeft / vaultTotalPoints;
+        uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / MAX_BPS;
+
+
+        pointsWithdrawn[epochId][vault][msg.sender][token] += pointsLeft;
+
+
+        token.safeTransfer(msg.sender, tokensForUser);
     }
 
 
