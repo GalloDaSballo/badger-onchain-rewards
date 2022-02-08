@@ -22,7 +22,6 @@ contract RewardsManager {
     // Gotta figure out the scenarios and go through them rationally
 
     uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
-    address public BADGER = 0x3472A5A71965499acd81997a54BBA8D852C6E53d;
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
     
 
@@ -34,10 +33,7 @@ contract RewardsManager {
         uint256 startTimestamp;
         uint256 endTimestamp;
     }
-    uint256 public currentEpoch = 1; // NOTE: 0 has the meaning of either uninitialized or set to null
-
-    mapping(uint256 => mapping(address => uint256)) public badgerEmissionPerEpochPerVault; // Epoch data for each epoch badgerEmissionPerEpochPerVault[epochId][vaultAddress]
-    
+    uint256 public currentEpoch = 1; // NOTE: 0 has the meaning of either uninitialized or set to null    
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch points[epochId][vaultAddress][userAddress]
     mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
@@ -97,7 +93,7 @@ contract RewardsManager {
     // And we accrue users on any shares changes
     // Then we do not need
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) additionalReward; // additionalReward[epochId][vaultAddress][tokenAddress] = AMOUNT
+    mapping(uint256 => mapping(address => mapping(address => uint256))) rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
 
     /// @dev Sets the new epoch
     /// @notice Accruing is not necessary, it's just a convenience for end users
@@ -186,8 +182,6 @@ contract RewardsManager {
         return lastKnownTotalSupply;
     }
 
-    // TODO: Generalize the badger emission to any token
-    // Honestly badger can be generalized to the any token structure, avoiding the need for extra mappings
     // TODO: Make tonkes `address[][] calldata tokens` so that you can accrue and claim more than one set of tokens per vault per epoch
     function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens) external {
         uint256 epochLength = epochsToClaim.length;
@@ -226,7 +220,7 @@ contract RewardsManager {
         }
 
         // We got some stuff left // Use ratio to calculate what we got left
-        uint256 totalAdditionalReward = additionalReward[epochId][vault][token];
+        uint256 totalAdditionalReward = rewards[epochId][vault][token];
 
         // We multiply just to avoid rounding
         uint256 ratioForPointsLeft = MAX_BPS * pointsLeft / vaultTotalPoints;
@@ -239,48 +233,28 @@ contract RewardsManager {
         token.safeTransfer(msg.sender, tokensForUser);
     }
 
-
-    /// @dev add new badger emission for the specific epoch
-    /// @notice you can add rewards for this epoch or future epochs
-    /// @notice we don't allow retroactivelly setting the main reward 
-    /// @notice as that could cause certain users (that already claimed) to loose the new rewards
-    /// @notice you can only add more, no turning back once you sent these
-    function setEmission(uint256 epochId, address vault, uint256 amount) public {
-        require(epochId >= currentEpoch); // dev: already ended
-
-        // NOTE: Instead of requiring emission, we just increase the amount, it gives more flexibility
-        // Basically you can only get rugged in the positive, cannot go below the amount provided
-
-        // Check change in balance just to be sure
-        uint256 startBalance = IERC20(BADGER).balanceOf(address(this));  
-        IERC20(BADGER).safeTransferFrom(msg.sender, address(this), amount);
-        uint256 endBalance = IERC20(BADGER).balanceOf(address(this));
- 
-        badgerEmissionPerEpochPerVault[epochId][vault] += endBalance - startBalance;
-    }
-
     /// @dev Utility function to specify a group of emissions for the specified epoch
     /// @notice This is how you'd typically set up emissions for a specific epoch
-    function setEmissions(uint256 epochId, address[] calldata vaults, uint256[] calldata badgerAmounts) external {
-        require(vaults.length == badgerAmounts.length); // dev: length mistamtch
+    function setEmissions(uint256 epochId, address[] calldata vaults, uint256[] calldata amounts) external {
+        require(vaults.length == amounts.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
-            setEmission(epochId, vaults[i], badgerAmounts[i]);   
+            setEmission(epochId, vaults[i], amounts[i]);   
         }
     }
 
     /// @dev Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
-    function sendExtraReward(address vault, address extraReward, uint256 amount) external {
-        // NOTE: This function can be called by anyone, effectively allowing for bribes / airdrops to vaults
+    function setEmission(uint256 epochId, address vault, address extraReward, uint256 amount) external {
+        require(epochId >= currentEpoch);
 
         // Check change in balance to support `feeOnTransfer` tokens as well
         uint256 startBalance = IERC20(extraReward).balanceOf(address(this));  
         IERC20(extraReward).safeTransferFrom(msg.sender, address(this), amount);
         uint256 endBalance = IERC20(extraReward).balanceOf(address(this));
 
-        additionalReward[currentEpoch][vault][extraReward] += endBalance - startBalance;
+        rewards[currentEpoch][vault][extraReward] += endBalance - startBalance;
     }
     // NOTE: If you wanna do multiple rewards, just do a helper contract to call `sendExtraReward` multiple times
 
