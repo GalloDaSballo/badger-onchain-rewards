@@ -21,11 +21,11 @@ contract RewardsManager {
 
     // Gotta figure out the scenarios and go through them rationally
 
-    uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
+    uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
     
 
-    uint256 private constant MAX_BPS = 10_000;
+    uint256 public constant MAX_BPS = 10_000;
     
     mapping(uint256 => Epoch) public epochs; // Epoch data for each epoch epochs[epochId]
     // id is implicit in the list
@@ -33,7 +33,8 @@ contract RewardsManager {
         uint256 startTimestamp;
         uint256 endTimestamp;
     }
-    uint256 public currentEpoch = 1; // NOTE: 0 has the meaning of either uninitialized or set to null    
+    uint256 public currentEpoch = 0; // NOTE: 0 has the meaning of either uninitialized or set to null
+    // We need to start with 0 so the first epoch can be set right after deployment 
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch points[epochId][vaultAddress][userAddress]
     mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
@@ -361,7 +362,7 @@ contract RewardsManager {
 
     // @dev Figures out the last time the given user was accrued at the epoch for the vault
     // @notice Invanriant -> Never changed means full duration
-    function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public returns (uint256) {
+    function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = epochs[epochId];
 
