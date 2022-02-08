@@ -18,7 +18,7 @@ contract RewardsManager {
 
 
     // TODO
-    // getTimeInEpochFromLastAccrue and getVaultTimeLeftToAccrue
+
     // Gotta figure out the scenarios and go through them rationally
 
     uint256 private constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
@@ -38,7 +38,7 @@ contract RewardsManager {
     
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch points[epochId][vaultAddress][userAddress]
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? pointsWithdrawn[epochId][vaultAddress][userAddress]
+    mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
     
     mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch totalPoints[epochId][vaultAddress]
 
@@ -113,18 +113,19 @@ contract RewardsManager {
     /// @notice You need to accrue a vault before you can claim it's rewards
     /// @notice You can accrue
     function accrueVault(uint256 epochId, address vault) public returns (uint256) {
-            uint256 timeLeftToAccrue = getVaultTimeLeftToAccrue(epochId, vault);
+        uint256 timeLeftToAccrue = getVaultTimeLeftToAccrue(epochId, vault);
 
-            if(timeLeftToAccrue == 0) {
-                // We're done
-                return 0; 
-            }
+        // Prob expired, may as well return early
+        if(timeLeftToAccrue == 0) {
+            // We're done
+            return 0; 
+        }
 
-            uint256 amountToAccrue = getTotalSupplyAtEpoch(epochId, vault);
+        uint256 totalSupply = getTotalSupplyAtEpoch(epochId, vault);
 
-            totalPoints[epochId][vault] += timeLeftToAccrue * amountToAccrue;
-            lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
-            // Setting to the actual time when `accrueVault` was called may help with debugging though
+        totalPoints[epochId][vault] += timeLeftToAccrue * totalSupply;
+        lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
+        // Setting to the actual time when `accrueVault` was called may help with debugging though
     }
 
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public returns (uint256) {
@@ -139,13 +140,13 @@ contract RewardsManager {
             maxTime = epochData.endTimestamp;
         }
         // return min(end, now) - start;
-        if(lastBalanceChangeTime == 0) {
-            return maxTime - currentEpochData.startTimestamp;
+        if(lastAccrueTime == 0) {
+            return maxTime - epochData.startTimestamp;
         }
 
         // If timestamp is 0, we never accrued
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return lastAccrueTime - currentEpochData.startTimestamp;
+        return lastAccrueTime - epochData.startTimestamp;
     }
 
     
@@ -185,8 +186,8 @@ contract RewardsManager {
 
     // TODO: Generalize the badger emission to any token
     // Honestly badger can be generalized to the any token structure, avoiding the need for extra mappings
-
-    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, uint256[][] calldata tokens) external {
+    // TODO: Make tonkes `address[][] calldata tokens` so that you can accrue and claim more than one set of tokens per vault per epoch
+    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens) external {
         uint256 epochLength = epochsToClaim.length;
         uint256 vaultLength = vaults.length;
         uint256 tokensLength = tokens.length;
@@ -198,7 +199,7 @@ contract RewardsManager {
         // Then, given the list of tokens I execute the transfers
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
-        for(i = 0; i < epochLength; i++) {
+        for(uint256 i = 0; i < epochLength; i++) {
             claimReward(epochsToClaim[i], vaults[i], tokens[i]);
         }
     }
@@ -208,12 +209,16 @@ contract RewardsManager {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
         // TODO: Accrue the user in the past until the end of the epoch
-        accrueUser();
-
+        accrueUser(epochId, vault, msg.sender);
         accrueVault(epochId, vault);
 
         // Now that they are accrue, just use the points to estimate reward and send
+        uint256 userPoints = points[epochId][vault][msg.sender];
+        uint256 vaultTotalPoints = totalPoints[epochId][vault]
 
+        uint256 pointsLeft = userPoints - pointsWithdrawn[epochId][vault][msg.sender][token];
+
+        // TODO: Think about the ratio here
     }
 
 
@@ -286,7 +291,7 @@ contract RewardsManager {
 
     /// @dev handles a deposit for vault, to address of amount
     function _handleDeposit(address vault, address to, uint256 amount) internal {
-        accrueUser(vault, to);
+        accrueUser(currentEpoch, vault, to);
         accrueVault(currentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
         // Add deposit data for user
@@ -298,7 +303,7 @@ contract RewardsManager {
 
     /// @dev handles a withdraw for vault, from address of amount
     function _handleWithdrawal(address vault, address from, uint256 amount) internal {
-        accrueUser(vault, from);
+        accrueUser(currentEpoch, vault, from);
         accrueVault(currentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
         // Delete last shares
@@ -312,9 +317,9 @@ contract RewardsManager {
     /// @dev handles a transfer for vault, from address to address of amount
     function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
         // Accrue points for from, so they get rewards
-        accrueUser(vault, from);
+        accrueUser(currentEpoch, vault, from);
         // Accrue points for to, so they don't get too many rewards
-        accrueUser(vault, to);
+        accrueUser(currentEpoch, vault, to);
 
          // Add deposit data for to
         shares[currentEpoch][vault][to] += amount;
@@ -331,24 +336,23 @@ contract RewardsManager {
     /// @notice Figure out the time passed since last accrue (max is start of epoch)
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
-    function accrueUser(address vault, address user) public {
-        uint256 currentBalance = getBalanceAtCurrentEpoch(vault, user);
-
+    function accrueUser(uint256 epoch, address vault, address user) public {
+        uint256 currentBalance = getBalanceAtEpoch(epoch, vault, user);
 
         // Optimization:  No balance, return early
         if(currentBalance == 0){
             // Update timestamp to avoid math being off
-            lastUserAccrueTimestamp[currentEpoch][vault][user] = block.timestamp;
+            lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp;
             return;
         }
 
-        uint256 timeInEpochSinceLastAccrue = getTimeInEpochFromLastAccrue(vault, user);
+        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epoch, vault, user);
 
         // Optimization: time is 0, end early
         if(timeInEpochSinceLastAccrue == 0){
             // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
             // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[currentEpoch][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
             return;
         }
 
@@ -356,38 +360,64 @@ contract RewardsManager {
         uint256 newPoints = currentBalance * timeInEpochSinceLastAccrue;
         
         // Track user rewards
-        points[currentEpoch][vault][user] += newPoints;
-        // Track total points
-        totalPoints[currentEpoch][vault] += newPoints;
-        // At end of epoch userPoints / totalPoints is the percentage the user can receive of rewards (valid for any reward)
+        points[epoch][vault][user] += newPoints;
 
         // Set last time for updating the user
-        lastUserAccrueTimestamp[currentEpoch][vault][user] = block.timestamp;
+        lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp;
     }
 
+    // @dev Figures out the last time the given user was accrued at the epoch for the vault
+    // @notice Invanriant -> Never changed means full duration
+    function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public returns (uint256) {
+        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
+        Epoch memory epochData = epochs[epochId];
+
+        // If for some reason we are trying to accrue a position already accrued after end of epoch, return 0
+        if(lastBalanceChangeTime >= epochData.endTimestamp){
+            return 0;
+        }
+
+        // Becase we could be in a time where a new epoch hasn't started, we need this check
+        uint256 maxTime = block.timestamp;
+        if(maxTime > epochData.endTimestamp) {
+            maxTime = epochData.endTimestamp;
+        }
+
+        // If timestamp is 0, we never accrued
+        // return min(end, now) - start;
+        if(lastBalanceChangeTime == 0) {
+            return maxTime - epochData.startTimestamp;
+        }
 
 
-    /// @dev Given vault and user, find the last known balance
-    /// @notice since we may look in the past, we also update the balance for current epoch
-    function getBalanceAtCurrentEpoch(address vault, address user) public returns (uint256) {
-        uint256 cachedCurrentEpoch = currentEpoch; // Cache storage var to mem
+        // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
+        return lastBalanceChangeTime - epochData.startTimestamp;
+
+        // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
+
+        // Normal option 1  -> Accrue has happened in this epoch -> Accrue remaining time
+        // Normal option 2 -> Accrue never happened this epoch -> Accrue all time from start of epoch
+    }
+
+    function getBalanceAtEpoch(uint256 epochId, address vault, address user) public returns (uint256) {
+        uint256 cachedCurrentEpoch = epochId; // Cache storage var to mem
 
         // Time Last Known Balance has changed
-        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[cachedCurrentEpoch][vault][user];
+        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         uint256 lastBalanceChangeEpoch = 0; // We haven't found it
 
         // Optimistic Case, lastUserAccrueTimestamp for this epoch is nonZero, 
         // Because non-zero means we already found the balance, due to invariant, the balance is correct for this epoch
         // return this epoch balance
         if(lastBalanceChangeTime > 0) {
-            return shares[cachedCurrentEpoch][vault][user];
+            return shares[epochId][vault][user];
         }
         
 
         // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
         // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
         // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
-        for(uint256 i = cachedCurrentEpoch; i > 0; i--){
+        for(uint256 i = epochId; i > 0; i--){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
@@ -408,7 +438,7 @@ contract RewardsManager {
         uint256 lastKnownBalance = shares[lastBalanceChangeEpoch][vault][user];
 
         // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
-        shares[cachedCurrentEpoch][vault][user] = lastKnownBalance;
+        shares[epochId][vault][user] = lastKnownBalance;
 
         return lastKnownBalance;
 
@@ -428,47 +458,8 @@ contract RewardsManager {
         // Value can be 0, at which point we return 0 as that's the correct balance
 
         // This follows Invariant: If I had X amount of tokens at epoch N, and nothing changed, then I must have X tokens at epoch N+1
-
-
     }
 
-
-    // IF we add a way to track first interaction and last interaction
-    
-    /// @dev Given a vault and user, figure out the time that passed in this epoch since last accrue
-    /// @notice Invariant: max is SECONDS_PER_EPOCH
-    /// @notice Invariant: If user was never accrued this epoch, then their time is time - currentEpochData.startTimestamp
-    function getTimeInEpochFromLastAccrue(address vault, address user) public returns (uint256) {
-        uint256 cachedCurrentEpoch = currentEpoch; // Cache storage var to mem
-        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[cachedCurrentEpoch][vault][user];
-        Epoch memory currentEpochData = epochs[cachedCurrentEpoch];
-
-        // If for some reason we are trying to accrue a position already accrued after end of epoch, return 0
-        if(lastBalanceChangeTime >= currentEpochData.endTimestamp){
-            return 0;
-        }
-
-        // Becase we could be in a time where a new epoch hasn't started, we need this check
-        uint256 maxTime = block.timestamp;
-        if(maxTime > currentEpochData.endTimestamp) {
-            maxTime = currentEpochData.endTimestamp;
-        }
-
-        // If timestamp is 0, we never accrued
-        // return min(end, now) - start;
-        if(lastBalanceChangeTime == 0) {
-            return maxTime - currentEpochData.startTimestamp;
-        }
-
-
-        // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return lastBalanceChangeTime - currentEpochData.startTimestamp;
-
-        // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
-
-        // Normal option 1  -> Accrue has happened in this epoch -> Accrue remaining time
-        // Normal option 2 -> Accrue never happened this epoch -> Accrue all time from start of epoch
-    }
 
     // YOU DO NOT NEED TO ACCRUE OLD EPOCHS UNTIL YOU REDEEM
     // The reason is: They are not changing, the points that have changed have already and the points that are not changed are
