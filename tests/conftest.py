@@ -27,11 +27,15 @@ def user():
     return accounts[2]
 
 @pytest.fixture
-def token():
-    return interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
+def token(user):
+    whale = accounts.at("0x4441776e6a5d61fa024a5117bfc26b953ad1f425", force=True)
+    t = interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
+    t.transfer(user, t.balanceOf(whale), {"from": whale})
+    return t
 
-
-
+@pytest.fixture
+def wbtc():
+    return interface.IERC20("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599")
 
 @pytest.fixture
 def rewards_contract(deployer):
