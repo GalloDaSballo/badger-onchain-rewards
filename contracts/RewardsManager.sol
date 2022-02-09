@@ -227,7 +227,6 @@ contract RewardsManager {
         uint256 ratioForPointsLeft = MAX_BPS * pointsLeft / vaultTotalPoints;
         uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / MAX_BPS;
 
-
         pointsWithdrawn[epochId][vault][msg.sender][token] += pointsLeft;
 
 
@@ -236,30 +235,28 @@ contract RewardsManager {
 
     /// @dev Utility function to specify a group of emissions for the specified epoch
     /// @notice This is how you'd typically set up emissions for a specific epoch
-    function setEmissions(uint256 epochId, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
+    function addRewards(uint256 epochId, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
         require(vaults.length == amounts.length); // dev: length mistamtch
         require(vaults.length == tokens.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
-            setEmission(epochId, tokens[i], vaults[i], amounts[i]);   
+            addReward(epochId, tokens[i], vaults[i], amounts[i]);   
         }
     }
 
     /// @dev Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
-    function setEmission(uint256 epochId, address vault, address extraReward, uint256 amount) public {
+    function addReward(uint256 epochId, address vault, address token, uint256 amount) public {
         require(epochId >= currentEpoch);
 
         // Check change in balance to support `feeOnTransfer` tokens as well
-        uint256 startBalance = IERC20(extraReward).balanceOf(address(this));  
-        IERC20(extraReward).safeTransferFrom(msg.sender, address(this), amount);
-        uint256 endBalance = IERC20(extraReward).balanceOf(address(this));
+        uint256 startBalance = IERC20(token).balanceOf(address(this));  
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 endBalance = IERC20(token).balanceOf(address(this));
 
-        rewards[currentEpoch][vault][extraReward] += endBalance - startBalance;
+        rewards[currentEpoch][vault][token] += endBalance - startBalance;
     }
-    // NOTE: If you wanna do multiple rewards, just do a helper contract to call `sendExtraReward` multiple times
-
 
 
     // Total Points per epoch = Total Deposits * Total Points per Second * Seconds in Epoch
