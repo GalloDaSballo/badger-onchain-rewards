@@ -94,7 +94,7 @@ contract RewardsManager {
     // And we accrue users on any shares changes
     // Then we do not need
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
 
     /// @dev Sets the new epoch
     /// @notice Accruing is not necessary, it's just a convenience for end users
@@ -120,9 +120,9 @@ contract RewardsManager {
             return 0; 
         }
 
-        uint256 totalSupply = getTotalSupplyAtEpoch(epochId, vault);
+        uint256 supply = getTotalSupplyAtEpoch(epochId, vault);
 
-        totalPoints[epochId][vault] += timeLeftToAccrue * totalSupply;
+        totalPoints[epochId][vault] += timeLeftToAccrue * supply;
         lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
         // Setting to the actual time when `accrueVault` was called may help with debugging though
     }
@@ -235,12 +235,13 @@ contract RewardsManager {
 
     /// @dev Utility function to specify a group of emissions for the specified epoch
     /// @notice This is how you'd typically set up emissions for a specific epoch
-    function addRewards(uint256 epochId, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
+    function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
+        require(vaults.length == epochIds.length); // dev: length mistamtch
         require(vaults.length == amounts.length); // dev: length mistamtch
         require(vaults.length == tokens.length); // dev: length mistamtch
 
         for(uint256 i = 0; i < vaults.length; i++){
-            addReward(epochId, tokens[i], vaults[i], amounts[i]);   
+            addReward(epochIds[i], tokens[i], vaults[i], amounts[i]);   
         }
     }
 
@@ -255,7 +256,7 @@ contract RewardsManager {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         uint256 endBalance = IERC20(token).balanceOf(address(this));
 
-        rewards[currentEpoch][vault][token] += endBalance - startBalance;
+        rewards[epochId][vault][token] += endBalance - startBalance;
     }
 
 
