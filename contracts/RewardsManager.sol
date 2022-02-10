@@ -104,6 +104,7 @@ contract RewardsManager {
         // Prob expired, may as well return early
         if(timeLeftToAccrue == 0) {
             // We're done
+            lastAccruedTimestamp[epochId][vault] = block.timestamp;
             return 0; 
         }
 
