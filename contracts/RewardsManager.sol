@@ -8,17 +8,6 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 contract RewardsManager {
     using SafeERC20 for IERC20;
 
-    /// TODO TODO:
-    /// 3 Functions to get right
-    /// startNextEpoch
-    /// accrueUser
-    /// claimRewards
-    // Fix the Vault Accrual
-    // Vault should accrue with total supply, not points.
-
-
-    // Gotta figure out the scenarios and go through them rationally
-
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
     

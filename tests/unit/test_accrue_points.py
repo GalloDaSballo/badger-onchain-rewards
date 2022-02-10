@@ -49,5 +49,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault):
   ## Points is going to be deposit * time per epoch
   EXPECTED_POINTS = difference * INITIAL_DEPOSIT
 
+  ## NOTE: I've sometimes seen the test fail with zero, I believe this can happen if the evm clock doesn't move
+  ## If you can predictably figure this out, reach out at alex@badger.finance
   assert approx(initialized_contract.points(EPOCH, fake_vault, user), EXPECTED_POINTS, 1)
   assert initialized_contract.totalPoints(EPOCH, fake_vault) == EXPECTED_POINTS
