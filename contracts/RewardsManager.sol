@@ -143,7 +143,7 @@ contract RewardsManager {
 
         // If timestamp is 0, we never accrued
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return lastAccrueTime - epochData.startTimestamp;
+        return maxTime - lastAccrueTime;
     }
 
     
@@ -382,7 +382,7 @@ contract RewardsManager {
 
 
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return lastBalanceChangeTime - epochData.startTimestamp;
+        return maxTime - lastBalanceChangeTime;
 
         // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
 
