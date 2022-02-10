@@ -17,8 +17,6 @@ contract RewardsManager {
     // Vault should accrue with total supply, not points.
 
 
-    // TODO
-
     // Gotta figure out the scenarios and go through them rationally
 
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
@@ -41,9 +39,9 @@ contract RewardsManager {
     
     mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch totalPoints[epochId][vaultAddress]
 
-    mapping(uint256 => mapping(address => uint256)) lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
-    mapping(uint256 => mapping(address => mapping(address => uint256))) lastUserAccrueTimestamp; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrueTimestampepochId][vaultAddress][userAddress]
-    mapping(address => uint256) lastVaultDeposit; // Last Epoch in which any user deposited in the vault, used to know if vault needs to be brought to new epoch
+    mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrueTimestampepochId][vaultAddress][userAddress]
+    mapping(address => uint256) public lastVaultDeposit; // Last Epoch in which any user deposited in the vault, used to know if vault needs to be brought to new epoch
     // Or just have the check and skip the op if need be
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; // Calculate points per each epoch shares[epochId][vaultAddress][userAddress]    
@@ -184,11 +182,12 @@ contract RewardsManager {
     }
 
     // TODO: Make tonkes `address[][] calldata tokens` so that you can accrue and claim more than one set of tokens per vault per epoch
-    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens) external {
+    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata users, address[] calldata tokens) external {
+        uint256 usersLength = users.length;
         uint256 epochLength = epochsToClaim.length;
         uint256 vaultLength = vaults.length;
         uint256 tokensLength = tokens.length;
-        require(epochLength == vaultLength && epochLength == tokensLength, "Length mismatch");
+        require(epochLength == vaultLength && epochLength == tokensLength && epochLength == usersLength, "Length mismatch");
 
         // Given an epoch and a vault
         // I have to accrue until end
@@ -197,24 +196,24 @@ contract RewardsManager {
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
         for(uint256 i = 0; i < epochLength; i++) {
-            claimReward(epochsToClaim[i], vaults[i], tokens[i]);
+            claimReward(epochsToClaim[i], vaults[i], users[i], tokens[i]);
         }
     }
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     // TODO: Actually check if it makes sense and it's correct
-    function claimReward(uint256 epochId, address vault, address token) public {
+    function claimReward(uint256 epochId, address vault, address user, address token) public {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
         // TODO: Accrue the user in the past until the end of the epoch
-        accrueUser(epochId, vault, msg.sender);
+        accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
 
         // Now that they are accrue, just use the points to estimate reward and send
-        uint256 userPoints = points[epochId][vault][msg.sender];
+        uint256 userPoints = points[epochId][vault][user];
         uint256 vaultTotalPoints = totalPoints[epochId][vault];
 
-        uint256 pointsLeft = userPoints - pointsWithdrawn[epochId][vault][msg.sender][token];
+        uint256 pointsLeft = userPoints - pointsWithdrawn[epochId][vault][user][token];
 
         if(pointsLeft == 0){
             return;
@@ -227,10 +226,10 @@ contract RewardsManager {
         uint256 ratioForPointsLeft = MAX_BPS * pointsLeft / vaultTotalPoints;
         uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / MAX_BPS;
 
-        pointsWithdrawn[epochId][vault][msg.sender][token] += pointsLeft;
+        pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
 
 
-        IERC20(token).safeTransfer(msg.sender, tokensForUser);
+        IERC20(token).safeTransfer(user, tokensForUser);
     }
 
     /// @dev Utility function to specify a group of emissions for the specified epoch
