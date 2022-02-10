@@ -15,8 +15,11 @@ MaxUint256 = str(int(2 ** 256 - 1))
 ## One deposit, total supply is the one deposit
 ## Means that after a withdrawal
 ## My points == total Points
-def full_deposit_one_user(initialized_contract, user, fake_vault):
+def full_deposit_one_user(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
+  REWARD_AMOUNT = 1e20
+
+  assert initialized_contract.rewards(1, fake_vault, token) == REWARD_AMOUNT ## We added one more
 
   initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
 
@@ -37,6 +40,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault):
 
   epochData = initialized_contract.epochs(EPOCH)
   difference = epochData[1] - initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user)
+  vault_difference = epochData[1] - initialized_contract.lastAccruedTimestamp(EPOCH, fake_vault)
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
@@ -48,8 +52,11 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault):
 
   ## Points is going to be deposit * time per epoch
   EXPECTED_POINTS = difference * INITIAL_DEPOSIT
+  EXPECTED_VAULT_POINTS = vault_difference * INITIAL_DEPOSIT
 
   ## NOTE: I've sometimes seen the test fail with zero, I believe this can happen if the evm clock doesn't move
   ## If you can predictably figure this out, reach out at alex@badger.finance
   assert approx(initialized_contract.points(EPOCH, fake_vault, user), EXPECTED_POINTS, 1)
-  assert initialized_contract.totalPoints(EPOCH, fake_vault) == EXPECTED_POINTS
+  assert initialized_contract.totalPoints(EPOCH, fake_vault) == EXPECTED_VAULT_POINTS
+
+  assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
