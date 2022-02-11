@@ -7,10 +7,12 @@ AddressZero = "0x0000000000000000000000000000000000000000"
 MaxUint256 = str(int(2 ** 256 - 1))
 
 """
-  TODO: 
+  Tests for checking balance changes for  
   Deposit
   Withdraw
   Transfer
+
+  Across epochs
 """
 
 

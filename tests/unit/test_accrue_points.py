@@ -97,5 +97,5 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
 
-
-
+## TODO Accrue Points will not work after already accrue
+## TODO Accrue points work proportionally to time of last accrue
