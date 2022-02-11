@@ -41,3 +41,47 @@ def test_must_have_balance_to_add(initialized_contract, user, fake_vault, wbtc):
   ## We have no wbtc, so this fails
   with brownie.reverts():
     initialized_contract.addReward(2, wbtc, fake_vault, 1000, {"from": user})
+
+
+def test_cant_add_rewards_in_the_past(initialized_contract, user, fake_vault, token):
+  """
+    Revert test for rewards in past epochs
+  """
+  REWARD_AMOUNT = 1e18
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+
+  with brownie.reverts():
+    initialized_contract.addReward(0, fake_vault, token, REWARD_AMOUNT, {"from": user})
+
+  ## Wait the epoch to end
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  initialized_contract.startNextEpoch()
+
+  with brownie.reverts():
+    initialized_contract.addReward(1, fake_vault, token, REWARD_AMOUNT, {"from": user})
+
+
+def test_add_rewards_reverts_on_length_mismatch(initialized_contract, user, fake_vault, token):
+  """
+    Revert test for mistmatch length rewards
+  """
+  REWARD_AMOUNT = 1e18
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+
+  ## 2 epochs, 1 rest
+  with brownie.reverts("dev: length mismatch"):
+    initialized_contract.addRewards([0, 0], [fake_vault], [token], [REWARD_AMOUNT], {"from": user})
+
+  ## 2 vaults, 1 rest
+  with brownie.reverts("dev: length mismatch"):
+    initialized_contract.addRewards([0], [fake_vault], [token, token], [REWARD_AMOUNT], {"from": user})
+  
+  ## 2 tokens 1 rest
+  with brownie.reverts("dev: length mismatch"):
+    initialized_contract.addRewards([0], [fake_vault, fake_vault], [token], [REWARD_AMOUNT], {"from": user})
+  
+  ## 2 rewards 1 rest
+  with brownie.reverts("dev: length mismatch"):
+    initialized_contract.addRewards([0], [fake_vault], [token], [REWARD_AMOUNT, REWARD_AMOUNT], {"from": user})
