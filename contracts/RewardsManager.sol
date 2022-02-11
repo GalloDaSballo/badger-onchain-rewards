@@ -318,7 +318,11 @@ contract RewardsManager {
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
     function accrueUser(uint256 epoch, address vault, address user) public {
-        uint256 currentBalance = getBalanceAtEpoch(epoch, vault, user);
+        (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epoch, vault, user);
+
+        if(shouldUpdate) {
+            shares[epoch][vault][user] = currentBalance;
+        }
 
         // Optimization:  No balance, return early
         if(currentBalance == 0){
@@ -379,8 +383,11 @@ contract RewardsManager {
         // Normal option 1  -> Accrue has happened in this epoch -> Accrue remaining time
         // Normal option 2 -> Accrue never happened this epoch -> Accrue all time from start of epoch
     }
+    
 
-    function getBalanceAtEpoch(uint256 epochId, address vault, address user) public returns (uint256) {
+    /// @return uint256 - balance
+    /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
+    function getBalanceAtEpoch(uint256 epochId, address vault, address user) public view returns (uint256, bool) {
         uint256 cachedCurrentEpoch = epochId; // Cache storage var to mem
 
         // Time Last Known Balance has changed
@@ -391,7 +398,7 @@ contract RewardsManager {
         // Because non-zero means we already found the balance, due to invariant, the balance is correct for this epoch
         // return this epoch balance
         if(lastBalanceChangeTime > 0) {
-            return shares[epochId][vault][user];
+            return (shares[epochId][vault][user], false);
         }
         
 
@@ -410,7 +417,7 @@ contract RewardsManager {
 
         // Balance Never changed if we get here, it's their first deposit, return 0
         if(lastBalanceChangeEpoch == 0) {
-            return 0;
+            return (0, false); // We don't need to update the cachedBalance, the accrueTimestamp will be updated though
         }
 
 
@@ -418,10 +425,7 @@ contract RewardsManager {
         // Can still be zero
         uint256 lastKnownBalance = shares[lastBalanceChangeEpoch][vault][user];
 
-        // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
-        shares[epochId][vault][user] = lastKnownBalance;
-
-        return lastKnownBalance;
+        return (lastKnownBalance, true); // We should update the balance
 
         // Index of epochs should be fairly easy to get as long as we force each epoch to properly start at correct time and end at correct time
         // That's because it will be equal to

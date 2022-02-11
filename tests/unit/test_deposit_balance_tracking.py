@@ -33,10 +33,7 @@ def test_epoch_zero_to_one_weirdness(rewards_contract, user, fake_vault):
   assert rewards_contract.shares(new_epoch, fake_vault, user) == 0 ## Need to port them over via getBalanceAtEpoch
 
   ## Update the balance
-  rewards_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)
-
-  ## For this epoch it won't be there (as we don't look back to epoch 0)
-  assert rewards_contract.shares(new_epoch, fake_vault, user) == 0
+  assert rewards_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)[0] == 0
 
 
 
@@ -53,8 +50,7 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
     initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
     
     assert initialized_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
-    initialized_contract.getBalanceAtEpoch(epoch, fake_vault, user) ## Updates internal not actually needed
-    assert initialized_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
+    assert initialized_contract.getBalanceAtEpoch(epoch, fake_vault, user)[0] == INITIAL_DEPOSIT
 
 
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -65,12 +61,10 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
     new_epoch = 2
 
     assert initialized_contract.currentEpoch() == new_epoch
-    
-    ## Update the balance
-    initialized_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)
+  
 
     ## For this epoch it won't be there (as we don't look back to epoch 0)
-    assert initialized_contract.shares(new_epoch, fake_vault, user) == INITIAL_DEPOSIT ## Invariant is maintained
+    assert initialized_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)[0] == INITIAL_DEPOSIT ## Invariant is maintained
 
     ## Do it again to proove it's not a fluke
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -80,12 +74,9 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
     new_epoch = 3
 
     assert initialized_contract.currentEpoch() == new_epoch
-    
-    ## Update the balance
-    initialized_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)
 
     ## For this epoch it won't be there (as we don't look back to epoch 0)
-    assert initialized_contract.shares(new_epoch, fake_vault, user) == INITIAL_DEPOSIT ## Invariant is maintained
+    assert initialized_contract.getBalanceAtEpoch(new_epoch, fake_vault, user)[0] == INITIAL_DEPOSIT ## Invariant is maintained
 
   
 def test_epoch_changes_balances_are_preserved_after_tons_of_epochs(initialized_contract, user, fake_vault):
@@ -113,11 +104,8 @@ def test_epoch_changes_balances_are_preserved_after_tons_of_epochs(initialized_c
     ## New Current Epoch Balance is not there
     assert initialized_contract.shares(current_epoch, fake_vault, user) == 0
 
-    ## Update the balance
-    initialized_contract.getBalanceAtEpoch(current_epoch, fake_vault, user)
-
     ## Balance was correctly ported over
-    assert initialized_contract.shares(current_epoch, fake_vault, user) == INITIAL_DEPOSIT
+    assert initialized_contract.getBalanceAtEpoch(current_epoch, fake_vault, user)[0] == INITIAL_DEPOSIT
 
 def test_epoch_changes_balances_are_preserved_and_change_properly_after_tons_of_epochs(initialized_contract, user, fake_vault):
     epoch = 1
