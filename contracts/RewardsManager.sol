@@ -143,6 +143,8 @@ contract RewardsManager {
 
     /// @return uint256 totalSupply at epochId
     /// @return bool shouldUpdate, should we update the totalSupply[epochId][vault] (as we had to look it up)
+    /// @notice we return whether to update because the function has to figure that out
+    /// comparing the storage value after the return value is a waste of a SLOAD
     function getTotalSupplyAtEpoch(uint256 epochId, address vault) public view returns (uint256, bool) {
         if(lastAccruedTimestamp[epochId][vault] != 0){
             return (totalSupply[epochId][vault], false); // Already updated
@@ -390,6 +392,8 @@ contract RewardsManager {
 
     /// @return uint256 - balance
     /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
+    /// @notice we return whether to update because the function has to figure that out
+    /// comparing the storage value after the return value is a waste of a SLOAD
     function getBalanceAtEpoch(uint256 epochId, address vault, address user) public view returns (uint256, bool) {
         uint256 cachedCurrentEpoch = epochId; // Cache storage var to mem
 
