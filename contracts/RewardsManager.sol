@@ -108,7 +108,12 @@ contract RewardsManager {
             return 0; 
         }
 
-        uint256 supply = getTotalSupplyAtEpoch(epochId, vault);
+        (uint256 supply, bool shouldUpdate) = getTotalSupplyAtEpoch(epochId, vault);
+
+        if(shouldUpdate) {
+            // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
+            totalSupply[epochId][vault] = supply;
+        }
 
         totalPoints[epochId][vault] += timeLeftToAccrue * supply;
         lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
@@ -136,10 +141,11 @@ contract RewardsManager {
         return maxTime - lastAccrueTime;
     }
 
-    
-    function getTotalSupplyAtEpoch(uint256 epochId, address vault) public returns (uint256) {
+    /// @return uint256 totalSupply at epochId
+    /// @return bool shouldUpdate, should we update the totalSupply[epochId][vault] (as we had to look it up)
+    function getTotalSupplyAtEpoch(uint256 epochId, address vault) public view returns (uint256, bool) {
         if(lastAccruedTimestamp[epochId][vault] != 0){
-            return totalSupply[epochId][vault]; //We can trust the totalSupply value
+            return (totalSupply[epochId][vault], false); // Already updated
         }
 
         uint256 lastAccrueEpoch = 0; // Not found
@@ -157,7 +163,7 @@ contract RewardsManager {
 
         // Balance Never changed if we get here, the totalSupply is actually 0
         if(lastAccrueEpoch == 0) {
-            return 0;
+            return (0, false); // No need to update if it' 0
         }
 
 
@@ -165,10 +171,7 @@ contract RewardsManager {
         // Can still be zero (all shares burned)
         uint256 lastKnownTotalSupply = totalSupply[lastAccrueEpoch][vault];
 
-        // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
-        totalSupply[epochId][vault] = lastKnownTotalSupply;
-
-        return lastKnownTotalSupply;
+        return (lastKnownTotalSupply, true);
     }
 
     // TODO: Make tonkes `address[][] calldata tokens` so that you can accrue and claim more than one set of tokens per vault per epoch
@@ -317,27 +320,27 @@ contract RewardsManager {
     /// @notice Figure out the time passed since last accrue (max is start of epoch)
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
-    function accrueUser(uint256 epoch, address vault, address user) public {
-        (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epoch, vault, user);
+    function accrueUser(uint256 epochId, address vault, address user) public {
+        (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epochId, vault, user);
 
         if(shouldUpdate) {
-            shares[epoch][vault][user] = currentBalance;
+            shares[epochId][vault][user] = currentBalance;
         }
 
         // Optimization:  No balance, return early
         if(currentBalance == 0){
             // Update timestamp to avoid math being off
-            lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp;
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
             return;
         }
 
-        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epoch, vault, user);
+        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
 
         // Optimization: time is 0, end early
         if(timeInEpochSinceLastAccrue == 0){
             // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
             // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
             return;
         }
 
@@ -345,10 +348,10 @@ contract RewardsManager {
         uint256 newPoints = currentBalance * timeInEpochSinceLastAccrue;
         
         // Track user rewards
-        points[epoch][vault][user] += newPoints;
+        points[epochId][vault][user] += newPoints;
 
         // Set last time for updating the user
-        lastUserAccrueTimestamp[epoch][vault][user] = block.timestamp;
+        lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
     }
 
     // @dev Figures out the last time the given user was accrued at the epoch for the vault
