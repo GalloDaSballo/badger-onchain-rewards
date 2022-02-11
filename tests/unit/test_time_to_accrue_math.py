@@ -17,7 +17,7 @@ def test_deposit_time_is_last_accrue_time(initialized_contract, user, fake_vault
   INITIAL_DEPOSIT = 1e18
   EPOCH = 1
 
-  deposit_tx = initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   time_of_deposit = deposit_tx.timestamp
 
   assert initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user) == time_of_deposit
@@ -36,7 +36,7 @@ def test_if_wait_one_epoch_should_accrue_one_epoch(initialized_contract, user, f
 
   EPOCH = 1
 
-  deposit_tx = initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   time_of_deposit = deposit_tx.timestamp
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == chain.time() - time_of_deposit ## Accrue happens at deposit
 
@@ -59,7 +59,7 @@ def test_if_accrue_at_end_of_epoch_time_left_is_zero(initialized_contract, user,
   EPOCH = 1
 
   ## Deposit
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Wait
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 10000)
@@ -81,7 +81,7 @@ def test_if_wait_some_time_in_one_epoch(initialized_contract, user, fake_vault):
 
   EPOCH = 1
 
-  deposit_tx = initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   time_of_deposit = deposit_tx.timestamp
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == 0 ## Note: brownie is weird, sometimes this can be 1 second
 
@@ -103,7 +103,7 @@ def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
 
   EPOCH = 1
 
-  deposit_tx = initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   time_of_deposit = deposit_tx.timestamp
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == 0 ## Note: brownie is weird, sometimes this can be 1 second
 

@@ -20,7 +20,7 @@ def test_epoch_zero_to_one_weirdness(rewards_contract, user, fake_vault):
 
   INITIAL_DEPOSIT = 1e18
 
-  rewards_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  rewards_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   assert rewards_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
 
   ## Here come's the weird part
@@ -47,7 +47,7 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
 
     INITIAL_DEPOSIT = 1e18
 
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
     
     assert initialized_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
     assert initialized_contract.getBalanceAtEpoch(epoch, fake_vault, user)[0] == INITIAL_DEPOSIT
@@ -86,7 +86,7 @@ def test_epoch_changes_balances_are_preserved_after_tons_of_epochs(initialized_c
 
     INITIAL_DEPOSIT = 1e18
 
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
     
     assert initialized_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
 
@@ -114,7 +114,7 @@ def test_epoch_changes_balances_are_preserved_and_change_properly_after_tons_of_
 
     INITIAL_DEPOSIT = 1e18
 
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
     
     assert initialized_contract.shares(epoch, fake_vault, user) == INITIAL_DEPOSIT
 
@@ -127,7 +127,7 @@ def test_epoch_changes_balances_are_preserved_and_change_properly_after_tons_of_
 
     SECOND_DEPOSIT = 3e18
     
-    initialized_contract.notifyTransfer(SECOND_DEPOSIT, AddressZero, user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(AddressZero, user, SECOND_DEPOSIT, {"from": fake_vault})
 
 
     ## See if we get the balance
@@ -144,7 +144,7 @@ def test_epoch_changes_balances_are_preserved_and_change_properly_after_tons_of_
     chain.mine()
 
     THIRD_DEPOSIT = 6e18
-    initialized_contract.notifyTransfer(THIRD_DEPOSIT, AddressZero, user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(AddressZero, user, THIRD_DEPOSIT, {"from": fake_vault})
 
     assert initialized_contract.shares(current_epoch, fake_vault, user) == INITIAL_DEPOSIT + SECOND_DEPOSIT + THIRD_DEPOSIT
 

@@ -263,7 +263,7 @@ contract RewardsManager {
     /// @notice After that, just change the balances
     /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
     // TODO: Change to from to amount
-    function notifyTransfer(uint256 amount, address from, address to) external {
+    function notifyTransfer(address from, address to, uint256 amount) external {
         // NOTE: Anybody can call this because it's indexed by msg.sender
         address vault = msg.sender; // Only the vault can change these
 

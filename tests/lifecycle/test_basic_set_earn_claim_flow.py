@@ -28,7 +28,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault, token):
   initial_reward_balance = token.balanceOf(user)
 
   ## Only deposit so we get 100% of rewards
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Wait the epoch to end
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)

@@ -19,12 +19,12 @@ def test_a_deposit_increases_user_balance_and_total_supply(initialized_contract,
   INITIAL_DEPOSIT = 1e18
   SECOND_AMOUNT = 3e18
 
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT
 
-  initialized_contract.notifyTransfer(SECOND_AMOUNT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, SECOND_AMOUNT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT + SECOND_AMOUNT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT + SECOND_AMOUNT
@@ -39,30 +39,30 @@ def test_a_transfer_reduces_user_balance_increases_recipient_balance_total_suppl
   THIRD_AMOUNT = 6e18
 
   ## User mints
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## User transferred to `second_user`
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, second_user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(user, second_user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == 0
   assert initialized_contract.shares(EPOCH, fake_vault, second_user) == INITIAL_DEPOSIT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT
 
   ## Second User Mints
-  initialized_contract.notifyTransfer(SECOND_AMOUNT, AddressZero, second_user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, second_user, SECOND_AMOUNT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, second_user) == INITIAL_DEPOSIT + SECOND_AMOUNT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT + SECOND_AMOUNT
 
   ## First user mints
-  initialized_contract.notifyTransfer(THIRD_AMOUNT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, THIRD_AMOUNT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == THIRD_AMOUNT
   assert initialized_contract.shares(EPOCH, fake_vault, second_user) == INITIAL_DEPOSIT + SECOND_AMOUNT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT + SECOND_AMOUNT + THIRD_AMOUNT
 
   ## Transfer half to user two
-  initialized_contract.notifyTransfer(THIRD_AMOUNT / 2, user, second_user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(user, second_user, THIRD_AMOUNT / 2, {"from": fake_vault})
 
   ## totalSupply didn't change
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT + SECOND_AMOUNT + THIRD_AMOUNT
@@ -78,26 +78,26 @@ def test_a_withdrawal_reduces_user_balance_and_total_supply(initialized_contract
   THIRD_AMOUNT = 6e18
 
   ## User mints
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT
 
   ## Mint second amount
-  initialized_contract.notifyTransfer(SECOND_AMOUNT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, SECOND_AMOUNT, {"from": fake_vault})
 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT + SECOND_AMOUNT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT + SECOND_AMOUNT
 
   ## Burn second amount
-  initialized_contract.notifyTransfer(SECOND_AMOUNT, user, AddressZero, {"from": fake_vault})
+  initialized_contract.notifyTransfer(user, AddressZero, SECOND_AMOUNT, {"from": fake_vault})
   
   ## Second amount has been detracted
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT
   assert initialized_contract.totalSupply(EPOCH, fake_vault) == INITIAL_DEPOSIT
 
   ## Burn First amount 
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, AddressZero, {"from": fake_vault})
+  initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Total supply and deposits are zero
   assert initialized_contract.shares(EPOCH, fake_vault, user) == 0
@@ -122,14 +122,14 @@ def test_withdrawal_reverts(initialized_contract, user, fake_vault, token):
 
   ## Revert if you withdraw when you got nothing
   with brownie.reverts():
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, AddressZero, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
   
   ## Revert if after a deposit you withdraw too much
   ## Depoit INIITAL
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   ## Withdraw SECOND (too much)
   with brownie.reverts():
-    initialized_contract.notifyTransfer(SECOND_AMOUNT, user, AddressZero, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, AddressZero, SECOND_AMOUNT, {"from": fake_vault})
 
   
 def test_transfer_reverts(initialized_contract, user, fake_vault, second_user, token):
@@ -144,21 +144,21 @@ def test_transfer_reverts(initialized_contract, user, fake_vault, second_user, t
 
   ## Revert if you transfer without depositing first
   with brownie.reverts():
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, second_user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, second_user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Revert if after a deposit you transfer too much
   ## Depoit INIITAL
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   ## Withdraw SECOND (too much)
   with brownie.reverts():
-    initialized_contract.notifyTransfer(SECOND_AMOUNT, user, second_user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, second_user, SECOND_AMOUNT, {"from": fake_vault})
 
   ## Revert if after a withdrawal, you transfer too much
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, AddressZero, {"from": fake_vault})
+  initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Both too much or exact will revert as we withdrew
   with brownie.reverts():
-    initialized_contract.notifyTransfer(SECOND_AMOUNT, user, second_user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, second_user, SECOND_AMOUNT, {"from": fake_vault})
   with brownie.reverts():
-    initialized_contract.notifyTransfer(INITIAL_DEPOSIT, user, second_user, {"from": fake_vault})
+    initialized_contract.notifyTransfer(user, second_user, INITIAL_DEPOSIT, {"from": fake_vault})
 
