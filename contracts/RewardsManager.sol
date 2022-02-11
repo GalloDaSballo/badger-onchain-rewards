@@ -228,9 +228,9 @@ contract RewardsManager {
     /// @dev Utility function to specify a group of emissions for the specified epoch
     /// @notice This is how you'd typically set up emissions for a specific epoch
     function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
-        require(vaults.length == epochIds.length); // dev: length mistamtch
-        require(vaults.length == amounts.length); // dev: length mistamtch
-        require(vaults.length == tokens.length); // dev: length mistamtch
+        require(vaults.length == epochIds.length); // dev: length mismatch
+        require(vaults.length == amounts.length); // dev: length mismatch
+        require(vaults.length == tokens.length); // dev: length mismatch
 
         for(uint256 i = 0; i < vaults.length; i++){
             addReward(epochIds[i], tokens[i], vaults[i], amounts[i]);   
