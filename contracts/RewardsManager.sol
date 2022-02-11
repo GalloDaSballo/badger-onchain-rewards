@@ -120,7 +120,7 @@ contract RewardsManager {
         // Setting to the actual time when `accrueVault` was called may help with debugging though
     }
 
-    function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public returns (uint256) {
+    function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         Epoch memory epochData = epochs[epochId];
         if(lastAccrueTime >= epochData.endTimestamp) {
