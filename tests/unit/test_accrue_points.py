@@ -53,6 +53,7 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   INITIAL_DEPOSIT = 1e18
 
   EPOCH = 1
+  EPOCH_TWO = 2
 
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
@@ -84,18 +85,31 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 100000)
   chain.mine()
 
-  initialized_contract.accrueUser(EPOCH, fake_vault, user)
-  initialized_contract.accrueVault(EPOCH, fake_vault)
+  initialized_contract.accrueUser(EPOCH_TWO, fake_vault, user)
+  initialized_contract.accrueVault(EPOCH_TWO, fake_vault)
 
   ## Because we never interacted for epoch 2, we expect exact full points
   EXPECTED_POINTS = INITIAL_DEPOSIT * initialized_contract.SECONDS_PER_EPOCH()
   EXPECTED_VAULT_POINTS = INITIAL_DEPOSIT * initialized_contract.SECONDS_PER_EPOCH()
 
-  assert approx(initialized_contract.points(EPOCH, fake_vault, user), EXPECTED_POINTS, 1)
-  assert initialized_contract.totalPoints(EPOCH, fake_vault) == EXPECTED_VAULT_POINTS
+  assert approx(initialized_contract.points(EPOCH_TWO, fake_vault, user), EXPECTED_POINTS, 1)
+  assert initialized_contract.totalPoints(EPOCH_TWO, fake_vault) == EXPECTED_VAULT_POINTS
 
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
 
-## TODO Accrue Points will not work after already accrue
+  ## Because we already accrue all the time left in the epoch
+  assert initialized_contract.getVaultTimeLeftToAccrue(EPOCH_TWO, fake_vault) == 0
+
+  ## Accruring again doesn't do anything
+  initialized_contract.accrueUser(EPOCH_TWO, fake_vault, user)
+  initialized_contract.accrueVault(EPOCH_TWO, fake_vault)
+
+  assert approx(initialized_contract.points(EPOCH_TWO, fake_vault, user), EXPECTED_POINTS, 1)
+  assert initialized_contract.totalPoints(EPOCH_TWO, fake_vault) == EXPECTED_VAULT_POINTS
+
+  assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
+
+
 ## TODO Accrue points work proportionally to time of last accrue
+## This is a big TODO if I can do it properly
