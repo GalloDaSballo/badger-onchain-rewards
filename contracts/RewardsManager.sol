@@ -196,11 +196,9 @@ contract RewardsManager {
     }
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
-    // TODO: Actually check if it makes sense and it's correct
     function claimReward(uint256 epochId, address vault, address user, address token) public {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
-        // TODO: Accrue the user in the past until the end of the epoch
         accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
 
@@ -262,7 +260,6 @@ contract RewardsManager {
     /// @notice The handling of changes requires accruing points until now
     /// @notice After that, just change the balances
     /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
-    // TODO: Change to from to amount
     function notifyTransfer(address from, address to, uint256 amount) external {
         // NOTE: Anybody can call this because it's indexed by msg.sender
         address vault = msg.sender; // Only the vault can change these
