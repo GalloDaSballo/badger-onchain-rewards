@@ -8,25 +8,8 @@ MaxUint256 = str(int(2 ** 256 - 1))
 
 """
   A set of tests checking various cases of accruing points over time
-  NOTE: Before doing this, go test `getUserTimeLeftToAccrue`
+  These tests are effectively built on top of those that prove `getUserTimeLeftToAccrue`
 """
-
-
-## One deposit, total supply is the one deposit
-## Means that after a withdrawal
-## My points == total Points
-def full_deposit_one_user(initialized_contract, user, fake_vault, token):
-  INITIAL_DEPOSIT = 1e18
-  REWARD_AMOUNT = 1e20
-
-  assert initialized_contract.rewards(1, fake_vault, token) == REWARD_AMOUNT ## We added one more
-
-  initialized_contract.notifyTransfer(INITIAL_DEPOSIT, AddressZero, user, {"from": fake_vault})
-
-
-
-
-
 
 ## One deposit, total supply is the one deposit
 ## Means that at end of epoch

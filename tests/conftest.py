@@ -27,6 +27,10 @@ def user():
     return accounts[2]
 
 @pytest.fixture
+def second_user():
+    return accounts[3]
+
+@pytest.fixture
 def token(user):
     whale = accounts.at("0x4441776e6a5d61fa024a5117bfc26b953ad1f425", force=True)
     t = interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
