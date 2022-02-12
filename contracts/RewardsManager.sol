@@ -225,8 +225,93 @@ contract RewardsManager {
         IERC20(token).safeTransfer(user, tokensForUser);
     }
 
-    /// @dev Utility function to specify a group of emissions for the specified epoch
-    /// @notice This is how you'd typically set up emissions for a specific epoch
+
+    /// ===== TODO Gas friendlier functions for claiming ======= ///
+
+    // These are trying to optimize for gas to account for edge cases (1 year of rewards or similar)
+
+    // function claimOneTokenRewardOverMultipleEpochs(uint256 epochStart, uint256 epochEnd, address vault, address token) {
+    //     // Go over total tokens to award
+    //     // Then do one bulk transfer of it
+    //     // This is the function you want to use to claim after some time (month or 6 months)
+    // }
+    
+    /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
+    /// @notice This is a one time operation, your storage data will be deleted to trigger gas refunds
+    ///         Do this if you want to get the rewards and are sure you're getting all of them
+    /// @notice To be clear. If you forget one token, you are forfeiting those rewards, they won't be recoverable
+    function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
+        require(epochStart < epochEnd); // !dev epoch math wrong
+        uint256 cachedCurrentEpoch = currentEpoch; // Saves SLOAD later
+        uint256 tokensLength = tokens.length;
+        address user = msg.sender;
+        require(epochEnd < cachedCurrentEpoch); // !dev epoch math wrong
+
+        // Claim the tokens mentioned
+        // Over the epochs mentioned
+        // Using an accumulator instead of doing multiple transfers
+        // Deleting all shares, points and lastAccrueTimestamp data at the end to trigger gas refunds
+        // Bulking the transfer at the end to make it cheaper for gas
+
+        // This is the function you want to use to claim when you want to collect all and call it
+        // Calling this function will make you renounce any other token rewards (to trigger the gas refund)
+        // So make sure you're claiming all the rewards you want before doing this
+
+        uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+            // Accrue each vault and user for each epoch
+            accrueUser(epochId, vault, user);
+            accrueVault(epochId, vault);
+
+            // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+            // To allow for this I could loop and check they are all zero, which would allow for further optimization
+            for(uint256 i = 0; i < tokensLength; i++){
+                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+            }
+
+            // Use the reward ratio for the tokens
+            // Add to amounts
+
+            // Now that they are accrue, just use the points to estimate reward and send
+            uint256 userPoints = points[epochId][vault][user];
+
+            uint256 vaultTotalPoints = totalPoints[epochId][vault];
+
+            if(userPoints == 0){
+                continue;
+            }
+
+            // We multiply just to avoid rounding
+            uint256 ratioPoints = MAX_BPS * userPoints / vaultTotalPoints;
+
+            // NOTE: We don't set the pointsWithdrawn here because we will set the user shares to 0 later
+            // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
+
+            // Loop over the tokens and see the points here
+            for(uint256 i = 0; i < tokensLength; i++){
+                // Use ratio to calculate tokens to send
+                uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
+                uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
+
+                amounts[i] += tokensForUser;
+            }
+        }
+
+        // We've done the math, delete to trigger refunds
+        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+            delete shares[epochId][vault][user]; // Delete shares 
+            delete points[epochId][vault][user]; // Delete their points
+        }
+
+        // Go ahead and transfer
+        for(uint256 i = 0; i < tokensLength; i++){
+            IERC20(tokens[i]).safeTransfer(msg.sender, amounts[i]);
+        }
+    }
+
+    /// === WIP END === ///
+
+    /// @dev Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
         require(vaults.length == epochIds.length); // dev: length mismatch
         require(vaults.length == amounts.length); // dev: length mismatch

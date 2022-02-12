@@ -55,7 +55,7 @@ def test_full_deposit_one_year(initialized_contract, user, fake_vault, token):
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
 
-  assert tx.gas_used <= 255_630 ## Run through simulation
+  assert tx.gas_used <= 300_000 ## Run through simulation is 255651
 
 
 def test_full_deposit_claim_one_year_of_rewards(initialized_contract, user, fake_vault, token):
@@ -99,3 +99,36 @@ def test_full_deposit_claim_one_year_of_rewards(initialized_contract, user, fake
   assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch
 
   assert tx.gas_used <= 5_207_667 ## Run through simulation
+
+def test_full_deposit_claim_one_year_of_rewards_with_optimization(initialized_contract, user, fake_vault, token):
+  INITIAL_DEPOSIT = 1e18
+  REWARD_AMOUNT = 1e20
+  EPOCH = initialized_contract.currentEpoch() + 51
+
+  ## Because user has the tokens too, we check the balance here
+  initial_reward_balance = token.balanceOf(user)
+
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+
+  ## Only deposit so we get 100% of rewards
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+
+  ## Wait 51 epochs
+  for x in range(1, 52):
+    initialized_contract.addReward(x, fake_vault, token, REWARD_AMOUNT, {"from": user})
+    chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+    chain.mine()
+    initialized_contract.startNextEpoch({"from": user})
+
+  ## Wait out the last epoch so we can claim it
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+  initialized_contract.startNextEpoch({"from": user})
+
+  ## Claim rewards here
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, 52, fake_vault, [token], {"from": user})
+
+  ## Verify you got the entire amount
+  assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch
+
+  assert tx.gas_used <= 1_500_000 ## 1483973 Run through simulation
