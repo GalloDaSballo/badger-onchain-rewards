@@ -298,7 +298,8 @@ contract RewardsManager {
         }
 
         // We've done the math, delete to trigger refunds
-        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+        for(uint epochId = epochStart; epochId < epochEnd; epochId++) {
+            // epochId < epochEnd because we need to preserve the last one for future accruals and balance tracking
             delete shares[epochId][vault][user]; // Delete shares 
             delete points[epochId][vault][user]; // Delete their points
         }
