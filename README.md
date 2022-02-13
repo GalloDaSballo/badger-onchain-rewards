@@ -1,4 +1,5 @@
-# RewardsManager
+# RewardsManager - NOT AUDITED - WIP - USE AT OWN RISK
+DO NOT USE IN PROD, there are known vulnerabilities!!!!
 
 Allows to vest rewards based on time spent
 
