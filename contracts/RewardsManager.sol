@@ -101,6 +101,13 @@ contract RewardsManager {
     function accrueVault(uint256 epochId, address vault) public returns (uint256) {
         require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
 
+        (uint256 supply, bool shouldUpdate) = getTotalSupplyAtEpoch(epochId, vault);
+
+        if(shouldUpdate) {
+            // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
+            totalSupply[epochId][vault] = supply;
+        }
+
         uint256 timeLeftToAccrue = getVaultTimeLeftToAccrue(epochId, vault);
 
         // Prob expired, may as well return early
@@ -108,13 +115,6 @@ contract RewardsManager {
             // We're done
             lastAccruedTimestamp[epochId][vault] = block.timestamp;
             return 0; 
-        }
-
-        (uint256 supply, bool shouldUpdate) = getTotalSupplyAtEpoch(epochId, vault);
-
-        if(shouldUpdate) {
-            // Because we didn't return early, to make it cheaper for future lookbacks, let's store the lastKnownBalance
-            totalSupply[epochId][vault] = supply;
         }
 
         totalPoints[epochId][vault] += timeLeftToAccrue * supply;
@@ -199,7 +199,7 @@ contract RewardsManager {
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     function claimReward(uint256 epochId, address vault, address user, address token) public {
-        require(epochId < currentEpoch); // dev: !can only claim up to previous epoch
+        require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
         accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
@@ -411,16 +411,6 @@ contract RewardsManager {
     function accrueUser(uint256 epochId, address vault, address user) public {
         require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
 
-        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
-
-        // Optimization: time is 0, end early
-        if(timeInEpochSinceLastAccrue == 0){
-            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
-            // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
-            return;
-        }
-
         (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epochId, vault, user);
 
         if(shouldUpdate) {
@@ -431,6 +421,16 @@ contract RewardsManager {
         if(currentBalance == 0){
             // Update timestamp to avoid math being off
             lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
+            return;
+        }
+
+        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
+
+        // Optimization: time is 0, end early
+        if(timeInEpochSinceLastAccrue == 0){
+            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
+            // As such we still update the timestamp for historical purposes
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
             return;
         }
 
