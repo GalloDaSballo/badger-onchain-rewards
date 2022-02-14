@@ -99,6 +99,8 @@ contract RewardsManager {
     /// @notice You need to accrue a vault before you can claim it's rewards
     /// @notice You can accrue
     function accrueVault(uint256 epochId, address vault) public returns (uint256) {
+        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
+
         uint256 timeLeftToAccrue = getVaultTimeLeftToAccrue(epochId, vault);
 
         // Prob expired, may as well return early
@@ -138,7 +140,7 @@ contract RewardsManager {
 
         // If timestamp is 0, we never accrued
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return maxTime - lastAccrueTime;
+        return min(maxTime - lastAccrueTime, SECONDS_PER_EPOCH);
     }
 
     /// @return uint256 totalSupply at epochId
@@ -197,7 +199,7 @@ contract RewardsManager {
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     function claimReward(uint256 epochId, address vault, address user, address token) public {
-        require(epochId < currentEpoch); // dev: !can only claim ended epochs
+        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
 
         accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
@@ -407,6 +409,18 @@ contract RewardsManager {
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
     function accrueUser(uint256 epochId, address vault, address user) public {
+        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
+
+        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
+
+        // Optimization: time is 0, end early
+        if(timeInEpochSinceLastAccrue == 0){
+            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
+            // As such we still update the timestamp for historical purposes
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            return;
+        }
+
         (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epochId, vault, user);
 
         if(shouldUpdate) {
@@ -417,16 +431,6 @@ contract RewardsManager {
         if(currentBalance == 0){
             // Update timestamp to avoid math being off
             lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
-            return;
-        }
-
-        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
-
-        // Optimization: time is 0, end early
-        if(timeInEpochSinceLastAccrue == 0){
-            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
-            // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
             return;
         }
 
@@ -465,7 +469,7 @@ contract RewardsManager {
 
 
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return maxTime - lastBalanceChangeTime;
+        return min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
 
         // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
 
@@ -479,8 +483,6 @@ contract RewardsManager {
     /// @notice we return whether to update because the function has to figure that out
     /// comparing the storage value after the return value is a waste of a SLOAD
     function getBalanceAtEpoch(uint256 epochId, address vault, address user) public view returns (uint256, bool) {
-        uint256 cachedCurrentEpoch = epochId; // Cache storage var to mem
-
         // Time Last Known Balance has changed
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         uint256 lastBalanceChangeEpoch = 0; // We haven't found it
@@ -541,4 +543,8 @@ contract RewardsManager {
     // The reason is: They are not changing, the points that have changed have already and the points that are not changed are
     // just going to be deposit * time_spent as per the invariant
 
+
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
 }

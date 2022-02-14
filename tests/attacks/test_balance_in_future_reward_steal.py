@@ -25,8 +25,10 @@ def test_accrue_future_balance_out_of_whack(initialized_contract, user, fake_vau
   ## Only deposit so we get 100% of rewards
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  ## Accrue next epoch
-  initialized_contract.accrueUser(EPOCH + 1, fake_vault, user)
+  ## Accrue next epoch 
+  ## Fixed to revert
+  with brownie.reverts():
+    initialized_contract.accrueUser(EPOCH + 1, fake_vault, user)
 
   ## Then withdraw
   initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
@@ -34,8 +36,8 @@ def test_accrue_future_balance_out_of_whack(initialized_contract, user, fake_vau
   ## Current epoch balance is 0
   assert initialized_contract.getBalanceAtEpoch(EPOCH, fake_vault, user)[0] == 0
 
-  ## Future epoch baalnce is INITIAL_DEPOSIT
-  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == INITIAL_DEPOSIT
+  ## Future epoch baalnce is INITIAL_DEPOSIT ## fixed because can't accrue future
+  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
 
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -46,8 +48,8 @@ def test_accrue_future_balance_out_of_whack(initialized_contract, user, fake_vau
   ## Deposit only: INITIAL_DEPOSIT
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  ## See that you have twice the balance
-  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == INITIAL_DEPOSIT * 2
+  ## See that you have the correct balance
+  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == INITIAL_DEPOSIT
 
 
 ## Deposit -> Accrue epoch in future moves the balance to it and breaks the system
@@ -64,7 +66,9 @@ def test_accrue_future_breaks_time_left_to_accrue(initialized_contract, user, fa
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
   ## Accrue next epoch
-  initialized_contract.accrueUser(EPOCH + 1, fake_vault, user)
+  ## Fixed to revert
+  with brownie.reverts():
+    initialized_contract.accrueUser(EPOCH + 1, fake_vault, user)
 
   ## Then withdraw
   initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
@@ -73,7 +77,7 @@ def test_accrue_future_breaks_time_left_to_accrue(initialized_contract, user, fa
   assert initialized_contract.getBalanceAtEpoch(EPOCH, fake_vault, user)[0] == 0
 
   ## Future epoch baalnce is INITIAL_DEPOSIT
-  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == INITIAL_DEPOSIT
+  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
 
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -85,4 +89,4 @@ def test_accrue_future_breaks_time_left_to_accrue(initialized_contract, user, fa
   chain.mine()
 
   ## See that you have twice the balance
-  assert initialized_contract.getUserTimeLeftToAccrue(EPOCH + 1, fake_vault, user) > initialized_contract.SECONDS_PER_EPOCH()
+  assert initialized_contract.getUserTimeLeftToAccrue(EPOCH + 1, fake_vault, user) == initialized_contract.SECONDS_PER_EPOCH()
