@@ -199,7 +199,7 @@ contract RewardsManager {
 
     // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     function claimReward(uint256 epochId, address vault, address user, address token) public {
-        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
+        require(epochId < currentEpoch); // dev: !can only claim up to previous epoch
 
         accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
