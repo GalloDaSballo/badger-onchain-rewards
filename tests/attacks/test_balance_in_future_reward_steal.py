@@ -9,6 +9,8 @@ MaxUint256 = str(int(2 ** 256 - 1))
 """
   A set of exploits based on:
   https://docs.google.com/document/d/1bO2XfwQ60wQWePihgJu6UsukimI5ygTmC1rBTMGGNp0/edit#
+  NOTE: The attacks where available at commit: fb02070c919dd19f7f3ba5e2b2cfe9b4e394c1aa
+  These tests now verify the proper patching of them
 """
 
 
