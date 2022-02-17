@@ -122,6 +122,8 @@ contract RewardsManager {
         // Setting to the actual time when `accrueVault` was called may help with debugging though
     }
 
+    /// @dev Given an epoch and a vault, return the time left to accrue
+    /// @notice will return 0 for epochs in the future or for expired epochs
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         Epoch memory epochData = epochs[epochId];
@@ -175,10 +177,15 @@ contract RewardsManager {
         // Can still be zero (all shares burned)
         uint256 lastKnownTotalSupply = totalSupply[lastAccrueEpoch][vault];
 
+        if(lastKnownTotalSupply == 0){
+            return (0, false); // Despit it all, it's zero, no point in overwriting
+        }
+
         return (lastKnownTotalSupply, true);
     }
 
-    // TODO: Make tonkes `address[][] calldata tokens` so that you can accrue and claim more than one set of tokens per vault per epoch
+
+    /// @dev Allow to bulk claim rewards, inputs are fairly wasteful
     function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata users, address[] calldata tokens) external {
         uint256 usersLength = users.length;
         uint256 epochLength = epochsToClaim.length;
@@ -196,8 +203,10 @@ contract RewardsManager {
             claimReward(epochsToClaim[i], vaults[i], users[i], tokens[i]);
         }
     }
-
-    // NOTE: Gas savings is fine as public / external matters only when using mem vs calldata for arrays
+    
+    /// @dev Claim one Token Reward for a specific epoch, vault and user
+    /// @notice Anyone can claim on behalf of others
+    /// @notice Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     function claimReward(uint256 epochId, address vault, address user, address token) public {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
@@ -236,6 +245,7 @@ contract RewardsManager {
     //     // Go over total tokens to award
     //     // Then do one bulk transfer of it
     //     // This is the function you want to use to claim after some time (month or 6 months)
+    //     // This one is without gas refunds
     // }
     
     /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
@@ -444,8 +454,8 @@ contract RewardsManager {
         lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
     }
 
-    // @dev Figures out the last time the given user was accrued at the epoch for the vault
-    // @notice Invanriant -> Never changed means full duration
+    /// @dev Figures out the last time the given user was accrued at the epoch for the vault
+    /// @notice Invanriant -> Never changed means full duration
     function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = epochs[epochId];
@@ -478,6 +488,7 @@ contract RewardsManager {
     }
     
 
+    /// @dev Figures out and returns the balance of a user for a vault at a specific epoch
     /// @return uint256 - balance
     /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
     /// @notice we return whether to update because the function has to figure that out
