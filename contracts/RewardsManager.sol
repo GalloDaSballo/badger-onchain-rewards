@@ -5,6 +5,48 @@ pragma solidity ^0.8.9;
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
+
+/// @title RewardsManager
+/// @author Alex the Entreprenerd @ BadgerDAO
+/// @notice CREDIT
+/// Most of the code is inspired by:
+/// AAVE STAKE V2
+/// COMPOUND
+/// INVERSE.FINANCE Dividend Token
+/// Pool Together V4
+/// ABOUT THE ARCHITECTURE
+/// Invariant for deposits
+/// If you had X token at epoch N, you'll have X tokens at epoch N+1
+/// Total supply may be different
+/// However, we calculate your share by just multiplying the share * seconds in the vault
+/// If you had X tokens a epoch N, and you had X tokens at epoch N+1
+/// You'll get N + 1 * SECONDS_PER_EPOCH points in epoch N+1 if you redeem at N+2
+/// If you have X tokens at epoch N and withdraw, you'll get TIME_IN_EPOCH * X points
+
+/// MAIN ISSUE
+/// You'd need to accrue every single user to make sure that everyone get's the fair share
+/// Alternatively you'd need to calcualate each share on each block
+/// The alternative would be to check the vault.totalSupply()
+/// However note that will change (can change at any time in any magnitude)
+/// and as such cannot be trusted as much
+
+/// SOLUTION
+/// That the invariant for deposits works also for totalSupply
+/// If totalSupply was X tokens at epoch N, and nothing changes in epoch N+1
+/// Then in epoch N+1 the totalSupply was the same as in epoch N
+/// If that's the case
+/// and we accrue on every account change
+/// then all we gotta do is take totalSupply * lastAccrue amount and that should net us the totalPoints per epoch
+/// Remaining, non accrued users, have to be accrued without increasing the totalPoints as they are already accounted for in the totalSupply * time
+
+/// Invariant for points
+/// If you know totalSupply and Balance, and you know last timebalanceChanged as well as lasTime The Vault was accrued
+/// points = timeSinceLastUserAccrue * shares
+/// totalPoints = timeSinceLastVaultAccrue * totalSupply
+
+/// CONCLUSION
+/// Given the points, knowing the rewards amounts to distribute, you know how to split them at the end of each epoch
+
 contract RewardsManager {
     using SafeERC20 for IERC20;
 
@@ -39,47 +81,7 @@ contract RewardsManager {
     // You accrue one point per second for each second you are in the vault
 
 
-    // NOTE ABOUT ARCHITECTURE
-    // This contract is fundamentally tracking the balances on all registeredVaults for all users
-    // This basically means we have duplicated logic, we could do without by simply adding this to the vault
-    // Adding it may also allow to solve Yield Theft issues as we're accounting for value * time as a way to reward more fairly
-    // NOTE: Pool Together has 100% gone through these ideas, we have 4 public audits to read through
-    // CREDIT: Most of the code is inspired by:
-    // AAVE STAKE V2
-    // COMPOUND
-    // INVERSE.FINANCE Dividend Token
-    // Pool Together V4
 
-
-    // Invariant for deposits
-    // If you had X token at epoch N, you'll have X tokens at epoch N+1
-    // Total supply may be different
-    // However, we calculate your share by just multiplying the share * seconds in the vault
-    // If you had X tokens a epoch N, and you had X tokens at epoch N+1
-    // You'll get N + 1 * SECONDS_PER_EPOCH points in epoch N+1 if you redeem at N+2
-    // If you have X tokens at epoch N and withdraw, you'll get TIME_IN_EPOCH * X points
-
-
-    // MAIN ISSUE
-    // You'd need to accrue every single user to make sure that everyone get's the fair share
-    // Alternatively you'd need to calcualate each share on each block
-    // The alternative would be to check the vault.totalSupply()
-    // However note that will change (can change at any time in any magnitude)
-    // and as such cannot be trusted as much
-    // NOTE: That the invariant for deposits works also for totalSupply
-
-
-    // If totalSupply was X tokens at epoch N, and nothing changes in epoch N+1
-    // Then in epoch N+1 the totalSupply was the same as in epoch N
-    // If that's the case
-    // and we accrue on every account change
-    // then all we gotta do is take totalSupply * lastAccrue amount and that should net us the totalPoints per epoch
-    // Remaining, non accrued users, have to be accrued without increasing the totalPoints as they are already accounted for in the totalSupply * time
-    
-
-    // If the invariant that shares at x are the same as shares at n+1
-    // And we accrue users on any shares changes
-    // Then we do not need
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
 
@@ -324,7 +326,7 @@ contract RewardsManager {
 
     /// === WIP END === ///
 
-    /// @dev Utility function to specify a group of emissions for the specified epochs, vaults with tokens
+    /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
         require(vaults.length == epochIds.length); // dev: length mismatch
         require(vaults.length == amounts.length); // dev: length mismatch
@@ -335,7 +337,7 @@ contract RewardsManager {
         }
     }
 
-    /// @dev Add an additional reward for the current epoch
+    /// @notice Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     function addReward(uint256 epochId, address vault, address token, uint256 amount) public {
@@ -455,7 +457,7 @@ contract RewardsManager {
     }
 
     /// @dev Figures out the last time the given user was accrued at the epoch for the vault
-    /// @notice Invanriant -> Never changed means full duration
+    /// @notice Invariant -> Never changed means full duration
     function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = epochs[epochId];
@@ -530,29 +532,7 @@ contract RewardsManager {
         uint256 lastKnownBalance = shares[lastBalanceChangeEpoch][vault][user];
 
         return (lastKnownBalance, true); // We should update the balance
-
-        // Index of epochs should be fairly easy to get as long as we force each epoch to properly start at correct time and end at correct time
-        // That's because it will be equal to
-        // last_epoch_count = (START + lastUserAccrueTimestamp) / epoch_length
-        // This assumes each epoch starts right after the previous one ends, which is currently not enforced
-        // This may end up saving gas, so we may end up doing it
-
-        // However, for now, let's just do a basic search from current epoch to first epoch to find the last deposit
-
-        // If they never interacted, their balance will be 0
-        // We need to make sure that's the case
-        // We may need to track both the epoch and the timestamp to avoid this
-        // Alternartively, given timestamp we can always figure out epoch
-        // Once we figure out epoch we can get value
-        // Value can be 0, at which point we return 0 as that's the correct balance
-
-        // This follows Invariant: If I had X amount of tokens at epoch N, and nothing changed, then I must have X tokens at epoch N+1
     }
-
-
-    // YOU DO NOT NEED TO ACCRUE OLD EPOCHS UNTIL YOU REDEEM
-    // The reason is: They are not changing, the points that have changed have already and the points that are not changed are
-    // just going to be deposit * time_spent as per the invariant
 
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
