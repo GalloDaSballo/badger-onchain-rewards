@@ -53,7 +53,7 @@ def test_full_deposit_one_year(initialized_contract, user, fake_vault, token):
     initialized_contract.startNextEpoch({"from": user})
 
   ## Claim rewards here
-  tx = initialized_contract.claimReward(EPOCH, fake_vault, user, token)
+  tx = initialized_contract.claimReward(EPOCH, fake_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
@@ -96,7 +96,7 @@ def test_full_deposit_claim_one_year_of_rewards(initialized_contract, user, fake
 
 
   ## Claim rewards here
-  tx = initialized_contract.claimRewards(epochs_to_claim, vaults_to_claim, users_to_claim, tokens_to_claim)
+  tx = initialized_contract.claimRewards(epochs_to_claim, vaults_to_claim, tokens_to_claim, users_to_claim)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch

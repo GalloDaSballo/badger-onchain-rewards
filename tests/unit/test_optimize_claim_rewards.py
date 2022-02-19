@@ -162,7 +162,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   initialized_contract.startNextEpoch()
 
   ## Claim token here
-  initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, user, token, {"from": user})
+  initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
 
   ## Which will set `pointsWithdrawn` to non-zero causing revert on the check
   with brownie.reverts("dev: You already accrued during the epoch, cannot optimize"):

@@ -188,7 +188,7 @@ contract RewardsManager {
 
 
     /// @dev Allow to bulk claim rewards, inputs are fairly wasteful
-    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata users, address[] calldata tokens) external {
+    function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens, address[] calldata users) external {
         uint256 usersLength = users.length;
         uint256 epochLength = epochsToClaim.length;
         uint256 vaultLength = vaults.length;
@@ -202,14 +202,14 @@ contract RewardsManager {
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
         for(uint256 i = 0; i < epochLength; i++) {
-            claimReward(epochsToClaim[i], vaults[i], users[i], tokens[i]);
+            claimReward(epochsToClaim[i], vaults[i], tokens[i], users[i]);
         }
     }
     
     /// @dev Claim one Token Reward for a specific epoch, vault and user
     /// @notice Anyone can claim on behalf of others
     /// @notice Gas savings is fine as public / external matters only when using mem vs calldata for arrays
-    function claimReward(uint256 epochId, address vault, address user, address token) public {
+    function claimReward(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
         accrueUser(epochId, vault, user);
