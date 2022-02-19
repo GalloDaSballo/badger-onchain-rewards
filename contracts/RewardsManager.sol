@@ -239,27 +239,78 @@ contract RewardsManager {
     }
 
 
-    /// ===== TODO Gas friendlier functions for claiming ======= ///
+    /// ===== Gas friendlier functions for claiming ======= ///
 
-    // These are trying to optimize for gas to account for edge cases (1 year of rewards or similar)
+    /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
+    /// @notice You can't use this function if you've already withdrawn rewards for the epochs
+    /// @notice This function is useful if you claim once every X epochs, and want to bulk claim
+    function claimBulkTokensOverMultipleEpochs(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens, address user) external {
+        // Go over total tokens to award
+        // Then do one bulk transfer of it
+        // This is the function you want to use to claim after some time (month or 6 months)
+        // This one is without gas refunds, 
+        //  if you are confident in the fact that you're claiming all the tokens for a vault
+        //  you may as well use the optimized version to save more gas
+        require(epochStart < epochEnd); // !dev epoch math wrong
+        uint256 tokensLength = tokens.length;
+        require(epochEnd < currentEpoch); // !dev Can't claim if not expired
 
-    // function claimOneTokenRewardOverMultipleEpochs(uint256 epochStart, uint256 epochEnd, address vault, address token) {
-    //     // Go over total tokens to award
-    //     // Then do one bulk transfer of it
-    //     // This is the function you want to use to claim after some time (month or 6 months)
-    //     // This one is without gas refunds
-    // }
+        uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+            // Accrue each vault and user for each epoch
+            accrueUser(epochId, vault, user);
+            accrueVault(epochId, vault);
+
+            // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+            // To allow for this I could loop and check they are all zero, which would allow for further optimization
+            for(uint256 i = 0; i < tokensLength; i++){
+                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+            }
+
+            // Use the reward ratio for the tokens
+            // Add to amounts
+
+            // Now that they are accrue, just use the points to estimate reward and send
+            uint256 userPoints = points[epochId][vault][user];
+
+            uint256 vaultTotalPoints = totalPoints[epochId][vault];
+
+            if(userPoints == 0){
+                continue;
+            }
+
+            // We multiply just to avoid rounding
+            uint256 ratioPoints = MAX_BPS * userPoints / vaultTotalPoints;
+
+            // Loop over the tokens and see the points here
+            for(uint256 i = 0; i < tokensLength; i++){
+                // Use ratio to calculate tokens to send
+                uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
+                uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
+
+                // pointsWithdrawn[epochId][vault][user][tokens[i]] == userPoints
+                // Which means they claimed all points for that token
+                pointsWithdrawn[epochId][vault][user][tokens[i]] += userPoints;
+                amounts[i] += tokensForUser;
+            }
+        }
+
+        // Go ahead and transfer
+        for(uint256 i = 0; i < tokensLength; i++){
+            IERC20(tokens[i]).safeTransfer(user, amounts[i]);
+        }
+    }
     
     /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
     /// @notice This is a one time operation, your storage data will be deleted to trigger gas refunds
     ///         Do this if you want to get the rewards and are sure you're getting all of them
     /// @notice To be clear. If you forget one token, you are forfeiting those rewards, they won't be recoverable
     function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
-        require(epochStart < epochEnd); // !dev epoch math wrong
-        uint256 cachedCurrentEpoch = currentEpoch; // Saves SLOAD later
+        require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
-        address user = msg.sender;
-        require(epochEnd < cachedCurrentEpoch); // !dev epoch math wrong
+        address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
+        // NOTE: We don't cache currentEpoch as we never use it again
+        require(epochEnd < currentEpoch); // dev: epoch math wrong 
 
         // Claim the tokens mentioned
         // Over the epochs mentioned
@@ -318,9 +369,12 @@ contract RewardsManager {
             delete points[epochId][vault][user]; // Delete their points
         }
 
+        // For last epoch, we don't delete the shares, but we delete the points
+        delete points[epochEnd][vault][user];
+
         // Go ahead and transfer
         for(uint256 i = 0; i < tokensLength; i++){
-            IERC20(tokens[i]).safeTransfer(msg.sender, amounts[i]);
+            IERC20(tokens[i]).safeTransfer(user, amounts[i]);
         }
     }
 

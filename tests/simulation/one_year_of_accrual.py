@@ -138,9 +138,3 @@ def test_full_deposit_claim_one_year_of_rewards_with_optimization(initialized_co
 
   ## Verify user balance is still properly tracked
   assert initialized_contract.getBalanceAtEpoch(initialized_contract.currentEpoch(), fake_vault, user)[0] == INITIAL_DEPOSIT
-
-
-
-## TODO: Test claimBulkTokensOverMultipleEpochsOptimized
-## Make sure: Old balances are zero and can't be changed
-## Latest balance is untouched, ideally ported over if need be
