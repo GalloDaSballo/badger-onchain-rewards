@@ -103,6 +103,43 @@ def test_full_deposit_claim_one_year_of_rewards(initialized_contract, user, fake
 
   assert tx.gas_used <= 6_000_000 ## Run through simulation 5291637 gas from running the test
 
+
+def test_full_deposit_claim_one_year_of_rewards_with_bulk_function_no_optimizations(initialized_contract, user, fake_vault, token):
+  INITIAL_DEPOSIT = 1e18
+  REWARD_AMOUNT = 1e20
+  EPOCH = initialized_contract.currentEpoch() + 51
+
+  ## Because user has the tokens too, we check the balance here
+  initial_reward_balance = token.balanceOf(user)
+
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+
+  ## Only deposit so we get 100% of rewards
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+
+  ## Wait 51 epochs
+  for x in range(1, 52):
+    initialized_contract.addReward(x, fake_vault, token, REWARD_AMOUNT, {"from": user})
+    chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+    chain.mine()
+    initialized_contract.startNextEpoch({"from": user})
+
+  ## Wait out the last epoch so we can claim it
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+  initialized_contract.startNextEpoch({"from": user})
+
+  ## Claim rewards here
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochs(1, 52, fake_vault, [token], user, {"from": user})
+
+  ## Verify you got the entire amount
+  assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch
+
+  assert tx.gas_used <= 3_500_000 ## 3276492 Run through simulation, you save 1.5 MLN gas via refunds
+
+  ## Verify user balance is still properly tracked
+  assert initialized_contract.getBalanceAtEpoch(initialized_contract.currentEpoch(), fake_vault, user)[0] == INITIAL_DEPOSIT
+
 def test_full_deposit_claim_one_year_of_rewards_with_optimization(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
   REWARD_AMOUNT = 1e20

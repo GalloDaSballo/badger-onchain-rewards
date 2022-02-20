@@ -251,9 +251,9 @@ contract RewardsManager {
         // This one is without gas refunds, 
         //  if you are confident in the fact that you're claiming all the tokens for a vault
         //  you may as well use the optimized version to save more gas
-        require(epochStart < epochEnd); // !dev epoch math wrong
+        require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
-        require(epochEnd < currentEpoch); // !dev Can't claim if not expired
+        require(epochEnd < currentEpoch); // dev: Can't claim if not expired
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
         for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
