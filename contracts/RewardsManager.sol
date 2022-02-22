@@ -100,7 +100,7 @@ contract RewardsManager {
     /// @dev Given an epoch and vault, accrue it's totalPoints
     /// @notice You need to accrue a vault before you can claim it's rewards
     /// @notice You can accrue
-    function accrueVault(uint256 epochId, address vault) public returns (uint256) {
+    function accrueVault(uint256 epochId, address vault) public {
         require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
 
         (uint256 supply, bool shouldUpdate) = getTotalSupplyAtEpoch(epochId, vault);
@@ -116,7 +116,7 @@ contract RewardsManager {
         if(timeLeftToAccrue == 0) {
             // We're done
             lastAccruedTimestamp[epochId][vault] = block.timestamp;
-            return 0; 
+            return;
         }
 
         totalPoints[epochId][vault] += timeLeftToAccrue * supply;
