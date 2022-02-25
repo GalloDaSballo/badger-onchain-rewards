@@ -395,7 +395,7 @@ contract RewardsManager {
         }
     }
 
-    /// === WIP END === ///
+    /// === Bulk Claims END === ///
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
