@@ -32,11 +32,6 @@ def test_bulk_claim_duplicate_tokens(initialized_contract, user, fake_vault, tok
   ## half of this belongs to EPOCH and the other half belongs to EPOCH + 1
   assert token.balanceOf(initialized_contract) == REWARD_AMOUNT * 2
 
-  ## Now the user claims rewards just on the first epoch, but is able to steal rewards from the second epoch
-  ## by bulk claiming on duplicate tokens. This call should probably revert, but in reality it just transfers the 
-  ## user twice the amount of tokens they deserve
-  initialized_contract.claimBulkTokensOverMultipleEpochs(EPOCH, EPOCH, fake_vault, [token, token], user, {"from": user})
-
-  ## As of right now, this assert will fail, which shows the vulnerability. The user only claimed on EPOCH but stole the tokens
-  ## from EPOCH + 1. In the case of multiple users, the attacker can also steal reward tokens that belong to others
-  assert token.balanceOf(initialized_contract) == REWARD_AMOUNT
+  ## User shouldn't be allowed to bulk claim with the same token, otherwise they can steal tokens
+  with brownie.reverts():
+    initialized_contract.claimBulkTokensOverMultipleEpochs(EPOCH, EPOCH, fake_vault, [token, token], user, {"from": user})
