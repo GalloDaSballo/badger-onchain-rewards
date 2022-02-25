@@ -201,7 +201,7 @@ contract RewardsManager {
         // Then, given the list of tokens I execute the transfers
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
-        for(uint256 i = 0; i < epochLength; i++) {
+        for(uint256 i = 0; i < epochLength; ++i) {
             claimReward(epochsToClaim[i], vaults[i], tokens[i], users[i]);
         }
     }
@@ -257,7 +257,7 @@ contract RewardsManager {
         requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
-        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+        for(uint epochId = epochStart; epochId <= epochEnd; ++epochId) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
             accrueVault(epochId, vault);
@@ -278,7 +278,7 @@ contract RewardsManager {
             uint256 ratioPoints = MAX_BPS * userPoints / vaultTotalPoints;
 
             // Loop over the tokens and see the points here
-            for(uint256 i = 0; i < tokensLength; i++){
+            for(uint256 i = 0; i < tokensLength; ++i){
                 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
@@ -296,7 +296,7 @@ contract RewardsManager {
         }
 
         // Go ahead and transfer
-        for(uint256 i = 0; i < tokensLength; i++){
+        for(uint256 i = 0; i < tokensLength; ++i){
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
         }
     }
@@ -324,7 +324,7 @@ contract RewardsManager {
         // So make sure you're claiming all the rewards you want before doing this
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
-        for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
+        for(uint epochId = epochStart; epochId <= epochEnd;) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
             accrueVault(epochId, vault);
@@ -348,7 +348,7 @@ contract RewardsManager {
             // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
 
             // Loop over the tokens and see the points here
-            for(uint256 i = 0; i < tokensLength; i++){
+            for(uint256 i = 0; i < tokensLength; ){
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
@@ -359,30 +359,38 @@ contract RewardsManager {
                 uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
 
                 amounts[i] += tokensForUser;
+                unchecked { ++i; }
             }
+
+            unchecked { ++epochId; }
         }
 
         // We've done the math, delete to trigger refunds
-        for(uint epochId = epochStart; epochId < epochEnd; epochId++) {
+        for(uint epochId = epochStart; epochId < epochEnd; ) {
             // epochId < epochEnd because we need to preserve the last one for future accruals and balance tracking
             delete shares[epochId][vault][user]; // Delete shares 
             delete points[epochId][vault][user]; // Delete their points
+
+            unchecked { ++epochId; }
         }
 
         // Experimental optimization: can delete timestamp data on everything between epochStart and epochEnd
         // because shares will be zero in this interval (due to above deletes) so any accrual will not actually add
         // points. Need to keep the timestamp data on epochStart so you can't go backwards from one of these middle epochs
         // to get a non-zero balance and get points again
-        for(uint epochId = epochStart + 1; epochId < epochEnd; epochId++) {
-            delete lastUserAccrueTimestamp[epochId][vault][user];
-        }
+        // NOTE: Commented out as it actually seems to cost more gas due to refunds being capped
+        // FOR AUDITORS: LMK if you can figure this out
+        // for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
+        //     delete lastUserAccrueTimestamp[epochId][vault][user];
+        // }
         
         // For last epoch, we don't delete the shares, but we delete the points
         delete points[epochEnd][vault][user];
 
         // Go ahead and transfer
-        for(uint256 i = 0; i < tokensLength; i++){
+        for(uint256 i = 0; i < tokensLength; ){
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
+            unchecked { ++i; }
         }
     }
 
@@ -394,7 +402,7 @@ contract RewardsManager {
         require(vaults.length == amounts.length); // dev: length mismatch
         require(vaults.length == tokens.length); // dev: length mismatch
 
-        for(uint256 i = 0; i < vaults.length; i++){
+        for(uint256 i = 0; i < vaults.length; ++i){
             addReward(epochIds[i], tokens[i], vaults[i], amounts[i]);   
         }
     }
@@ -598,10 +606,14 @@ contract RewardsManager {
 
     function requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
-        for(uint i = 0; i < arrLength - 1; ++i) { // only up to len - 1 (no j to check if i == len - 1)
-            for (uint j = i + 1; j < arrLength; ++j) {
+        for(uint i = 0; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
+            for (uint j = i + 1; j < arrLength; ) {
                 require(arr[i] != arr[j]);
+
+                unchecked { ++j; }
             }
+
+            unchecked { ++i; }
         }
     }
 
