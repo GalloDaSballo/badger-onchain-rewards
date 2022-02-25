@@ -254,18 +254,13 @@ contract RewardsManager {
         require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
         require(epochEnd < currentEpoch); // dev: Can't claim if not expired
+        requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
         for(uint epochId = epochStart; epochId <= epochEnd; epochId++) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
             accrueVault(epochId, vault);
-
-            // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-            // To allow for this I could loop and check they are all zero, which would allow for further optimization
-            for(uint256 i = 0; i < tokensLength; i++){
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
-            }
 
             // Use the reward ratio for the tokens
             // Add to amounts
@@ -284,6 +279,11 @@ contract RewardsManager {
 
             // Loop over the tokens and see the points here
             for(uint256 i = 0; i < tokensLength; i++){
+                
+                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+                // To allow for this I could loop and check they are all zero, which would allow for further optimization
+                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
                 uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
@@ -311,6 +311,7 @@ contract RewardsManager {
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         // NOTE: We don't cache currentEpoch as we never use it again
         require(epochEnd < currentEpoch); // dev: epoch math wrong 
+        requireNoDuplicates(tokens);
 
         // Claim the tokens mentioned
         // Over the epochs mentioned
@@ -327,12 +328,6 @@ contract RewardsManager {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
             accrueVault(epochId, vault);
-
-            // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-            // To allow for this I could loop and check they are all zero, which would allow for further optimization
-            for(uint256 i = 0; i < tokensLength; i++){
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
-            }
 
             // Use the reward ratio for the tokens
             // Add to amounts
@@ -354,6 +349,11 @@ contract RewardsManager {
 
             // Loop over the tokens and see the points here
             for(uint256 i = 0; i < tokensLength; i++){
+
+                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+                // To allow for this I could loop and check they are all zero, which would allow for further optimization
+                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
                 uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
@@ -369,6 +369,14 @@ contract RewardsManager {
             delete points[epochId][vault][user]; // Delete their points
         }
 
+        // Experimental optimization: can delete timestamp data on everything between epochStart and epochEnd
+        // because shares will be zero in this interval (due to above deletes) so any accrual will not actually add
+        // points. Need to keep the timestamp data on epochStart so you can't go backwards from one of these middle epochs
+        // to get a non-zero balance and get points again
+        for(uint epochId = epochStart + 1; epochId < epochEnd; epochId++) {
+            delete lastUserAccrueTimestamp[epochId][vault][user];
+        }
+        
         // For last epoch, we don't delete the shares, but we delete the points
         delete points[epochEnd][vault][user];
 
@@ -588,6 +596,14 @@ contract RewardsManager {
         return (lastKnownBalance, true); // We should update the balance
     }
 
+    function requireNoDuplicates(address[] memory arr) internal pure {
+        uint256 arrLength = arr.length;
+        for(uint i = 0; i < arrLength - 1; ++i) { // only up to len - 1 (no j to check if i == len - 1)
+            for (uint j = i + 1; j < arrLength; ++j) {
+                require(arr[i] != arr[j]);
+            }
+        }
+    }
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
