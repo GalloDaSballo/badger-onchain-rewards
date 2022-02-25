@@ -5,6 +5,12 @@ pragma solidity 0.8.10;
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
+error epochNotEnded();
+error canOnlyAccrueUpToCurrentEpoch();
+error lengthMismatch();
+error epochMathWrong();
+error pointWithdrawnIsNonZero();
+error onlyPresentOrFutureEpochs();
 
 /// @title RewardsManager
 /// @author Alex the Entreprenerd @ BadgerDAO
@@ -88,7 +94,8 @@ contract RewardsManager {
     /// @dev Sets the new epoch
     /// @notice Accruing is not necessary, it's just a convenience for end users
     function startNextEpoch() external {
-        require(block.timestamp > epochs[currentEpoch].endTimestamp); // dev: !ended
+        if(!(block.timestamp > epochs[currentEpoch].endTimestamp)) revert epochNotEnded();
+
         uint256 newEpochId = ++currentEpoch;
 
         epochs[newEpochId] = Epoch(
@@ -101,7 +108,7 @@ contract RewardsManager {
     /// @notice You need to accrue a vault before you can claim it's rewards
     /// @notice You can accrue
     function accrueVault(uint256 epochId, address vault) public {
-        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
+        if(!(epochId <= currentEpoch)) revert canOnlyAccrueUpToCurrentEpoch();
 
         (uint256 supply, bool shouldUpdate) = getTotalSupplyAtEpoch(epochId, vault);
 
@@ -193,7 +200,7 @@ contract RewardsManager {
         uint256 epochLength = epochsToClaim.length;
         uint256 vaultLength = vaults.length;
         uint256 tokensLength = tokens.length;
-        require(epochLength == vaultLength && epochLength == tokensLength && epochLength == usersLength, "Length mismatch");
+        if(!(epochLength == vaultLength && epochLength == tokensLength && epochLength == usersLength)) revert lengthMismatch();
 
         // Given an epoch and a vault
         // I have to accrue until end
@@ -210,7 +217,7 @@ contract RewardsManager {
     /// @notice Anyone can claim on behalf of others
     /// @notice Gas savings is fine as public / external matters only when using mem vs calldata for arrays
     function claimReward(uint256 epochId, address vault, address token, address user) public {
-        require(epochId < currentEpoch); // dev: !can only claim ended epochs
+        if(!(epochId < currentEpoch)) revert epochNotEnded();
 
         accrueUser(epochId, vault, user);
         accrueVault(epochId, vault);
@@ -251,9 +258,9 @@ contract RewardsManager {
         // This one is without gas refunds, 
         //  if you are confident in the fact that you're claiming all the tokens for a vault
         //  you may as well use the optimized version to save more gas
-        require(epochStart <= epochEnd); // dev: epoch math wrong
+        if(!(epochStart <= epochEnd)) revert epochMathWrong();
         uint256 tokensLength = tokens.length;
-        require(epochEnd < currentEpoch); // dev: Can't claim if not expired
+        if(!(epochEnd < currentEpoch)) revert epochNotEnded();
         _requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
@@ -282,7 +289,7 @@ contract RewardsManager {
                 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+                if(!(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0)) revert pointWithdrawnIsNonZero();
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
@@ -306,11 +313,11 @@ contract RewardsManager {
     ///         Do this if you want to get the rewards and are sure you're getting all of them
     /// @notice To be clear. If you forget one token, you are forfeiting those rewards, they won't be recoverable
     function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
-        require(epochStart <= epochEnd); // dev: epoch math wrong
+        if(!(epochStart <= epochEnd)) revert epochMathWrong();
         uint256 tokensLength = tokens.length;
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         // NOTE: We don't cache currentEpoch as we never use it again
-        require(epochEnd < currentEpoch); // dev: epoch math wrong 
+        if(!(epochEnd < currentEpoch)) revert epochMathWrong(); // dev: epoch math wrong 
         _requireNoDuplicates(tokens);
 
         // Claim the tokens mentioned
@@ -353,7 +360,7 @@ contract RewardsManager {
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+                if(!(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0)) revert pointWithdrawnIsNonZero(); // dev: You already accrued during the epoch, cannot optimize
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
@@ -399,9 +406,8 @@ contract RewardsManager {
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
-        require(vaults.length == epochIds.length); // dev: length mismatch
-        require(vaults.length == amounts.length); // dev: length mismatch
-        require(vaults.length == tokens.length); // dev: length mismatch
+        if(!(vaults.length == epochIds.length && vaults.length == amounts.length && vaults.length == tokens.length)) revert lengthMismatch(); // dev: length mismatch
+
 
         for(uint256 i = 0; i < vaults.length; ++i){
             addReward(epochIds[i], tokens[i], vaults[i], amounts[i]);   
@@ -412,7 +418,7 @@ contract RewardsManager {
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     function addReward(uint256 epochId, address vault, address token, uint256 amount) public {
-        require(epochId >= currentEpoch);
+        if(!(epochId >= currentEpoch)) revert onlyPresentOrFutureEpochs();
 
         // Check change in balance to support `feeOnTransfer` tokens as well
         uint256 startBalance = IERC20(token).balanceOf(address(this));  
@@ -492,7 +498,7 @@ contract RewardsManager {
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
     function accrueUser(uint256 epochId, address vault, address user) public {
-        require(epochId <= currentEpoch); // dev: !can only accrue up to current epoch
+        if(!(epochId <= currentEpoch)) revert canOnlyAccrueUpToCurrentEpoch(); // dev: !can only accrue up to current epoch
 
         (uint256 currentBalance, bool shouldUpdate) = getBalanceAtEpoch(epochId, vault, user);
 
