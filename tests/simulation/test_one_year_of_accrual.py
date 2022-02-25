@@ -171,7 +171,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_optimization(initialized_co
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch
 
-  assert tx.gas_used <= 100_000 ## 1525793 Run through simulation
+  assert tx.gas_used <= 1_600_000 ## 1517925 Run through simulation
 
   ## Verify user balance is still properly tracked
   assert initialized_contract.getBalanceAtEpoch(initialized_contract.currentEpoch(), fake_vault, user)[0] == INITIAL_DEPOSIT

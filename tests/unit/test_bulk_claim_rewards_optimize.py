@@ -99,9 +99,9 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
 
   assert initialized_contract.points(EPOCH, fake_vault, user) == 0
 
-
-def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_contract, user, fake_vault, token, second_user):
+def test_claimBulkTokensOverMultipleEpochsOptimized_cannotClaimForOthers(initialized_contract, user, fake_vault, token, second_user):
   INITIAL_DEPOSIT = 1e18
+  INITIAL_SECOND_USER_DEPOSIT = INITIAL_DEPOSIT // 3
   REWARD_AMOUNT = 1e20
   EPOCH = initialized_contract.currentEpoch()
 
@@ -135,7 +135,48 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
 
   ## They got nothing
   assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
-  assert token.balanceOf(second_user) == 0
+  assert token.balanceOf(second_user) == 0 ## They also got nothing
+
+
+
+def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_contract, user, fake_vault, token, second_user):
+  INITIAL_DEPOSIT = 1e18
+  INITIAL_SECOND_USER_DEPOSIT = INITIAL_DEPOSIT // 3
+  REWARD_AMOUNT = 1e20
+  EPOCH = initialized_contract.currentEpoch()
+
+  ## Add rewards here
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+  initialized_contract.addReward(EPOCH, fake_vault, token, REWARD_AMOUNT, {"from": user})
+
+  ## User didn't deposited, they have 0 points
+  assert initialized_contract.points(EPOCH, fake_vault, user) == 0
+
+  ## Because user has the tokens too, we check the balance here
+  initial_reward_balance = token.balanceOf(user)
+
+  ## Only deposit so we get 100% of rewards
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+  initialized_contract.notifyTransfer(AddressZero, second_user, INITIAL_SECOND_USER_DEPOSIT, {"from": fake_vault})
+
+  ## User depoisted, but never accrued, points is still zero
+  assert initialized_contract.points(EPOCH, fake_vault, user) == 0
+
+  ## Wait the epoch to end
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## Go next epoch else you can't claim
+  initialized_contract.startNextEpoch()
+
+  """
+    Cannot claim for someone else
+  """
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": second_user})
+
+  ## They got nothing
+  assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
+  assert token.balanceOf(second_user) > 0 ## They did
 
   
   CURRENT_EPOCH = initialized_contract.currentEpoch()

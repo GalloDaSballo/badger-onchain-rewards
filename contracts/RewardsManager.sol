@@ -323,7 +323,7 @@ contract RewardsManager {
         // Calling this function will make you renounce any other token rewards (to trigger the gas refund)
         // So make sure you're claiming all the rewards you want before doing this
 
-        uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
         for(uint epochId = epochStart; epochId <= epochEnd;) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
@@ -338,6 +338,7 @@ contract RewardsManager {
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
 
             if(userPoints == 0){
+                unchecked { ++epochId; }
                 continue;
             }
 
