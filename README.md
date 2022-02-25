@@ -1,4 +1,10 @@
-# RewardsManager - NOT AUDITED - WIP - USE AT OWN RISK
+# Rewards Manager - With Custom Errors -NOT AUDITED - NOT PEER REVIEWED
+
+## Gas Math
+![Math](/.github/gas-comparison.png)
+From this math I think the savings are not worth the hassle
+
+
 DO NOT USE IN PROD, there are known vulnerabilities!!!!
 
 Allows to vest rewards based on time spent
