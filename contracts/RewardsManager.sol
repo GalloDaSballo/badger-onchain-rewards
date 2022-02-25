@@ -137,14 +137,14 @@ contract RewardsManager {
         if(maxTime > epochData.endTimestamp) {
             maxTime = epochData.endTimestamp;
         }
-        // return min(end, now) - start;
+        // return _min(end, now) - start;
         if(lastAccrueTime == 0) {
             return maxTime - epochData.startTimestamp;
         }
 
         // If timestamp is 0, we never accrued
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return min(maxTime - lastAccrueTime, SECONDS_PER_EPOCH);
+        return _min(maxTime - lastAccrueTime, SECONDS_PER_EPOCH);
     }
 
     /// @return uint256 totalSupply at epochId
@@ -254,7 +254,7 @@ contract RewardsManager {
         require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
         require(epochEnd < currentEpoch); // dev: Can't claim if not expired
-        requireNoDuplicates(tokens);
+        _requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
         for(uint epochId = epochStart; epochId <= epochEnd; ++epochId) {
@@ -311,7 +311,7 @@ contract RewardsManager {
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         // NOTE: We don't cache currentEpoch as we never use it again
         require(epochEnd < currentEpoch); // dev: epoch math wrong 
-        requireNoDuplicates(tokens);
+        _requireNoDuplicates(tokens);
 
         // Claim the tokens mentioned
         // Over the epochs mentioned
@@ -544,14 +544,14 @@ contract RewardsManager {
         }
 
         // If timestamp is 0, we never accrued
-        // return min(end, now) - start;
+        // return _min(end, now) - start;
         if(lastBalanceChangeTime == 0) {
             return maxTime - epochData.startTimestamp;
         }
 
 
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+        return _min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
 
         // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
 
@@ -604,7 +604,7 @@ contract RewardsManager {
         return (lastKnownBalance, true); // We should update the balance
     }
 
-    function requireNoDuplicates(address[] memory arr) internal pure {
+    function _requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
         for(uint i = 0; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
             for (uint j = i + 1; j < arrLength; ) {
@@ -617,7 +617,7 @@ contract RewardsManager {
         }
     }
 
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
 }
