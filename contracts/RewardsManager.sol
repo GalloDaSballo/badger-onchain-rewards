@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 
 
 /// @title RewardsManager
@@ -47,14 +48,14 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 /// CONCLUSION
 /// Given the points, knowing the rewards amounts to distribute, you know how to split them at the end of each epoch
 
-contract RewardsManager {
+contract RewardsManager is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
     
 
-    uint256 public constant MAX_BPS = 10_000;
+    uint256 public constant PRECISION = 1e18;
     
     mapping(uint256 => Epoch) public epochs; // Epoch data for each epoch epochs[epochId]
     // id is implicit in the list
@@ -229,8 +230,8 @@ contract RewardsManager {
         uint256 totalAdditionalReward = rewards[epochId][vault][token];
 
         // We multiply just to avoid rounding
-        uint256 ratioForPointsLeft = MAX_BPS * pointsLeft / vaultTotalPoints;
-        uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / MAX_BPS;
+        uint256 ratioForPointsLeft = PRECISION * pointsLeft / vaultTotalPoints;
+        uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / PRECISION;
 
         pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
 
@@ -275,7 +276,7 @@ contract RewardsManager {
             }
 
             // We multiply just to avoid rounding
-            uint256 ratioPoints = MAX_BPS * userPoints / vaultTotalPoints;
+            uint256 ratioPoints = PRECISION * userPoints / vaultTotalPoints;
 
             // Loop over the tokens and see the points here
             for(uint256 i = 0; i < tokensLength; ++i){
@@ -286,7 +287,7 @@ contract RewardsManager {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
+                uint256 tokensForUser = totalAdditionalReward * ratioPoints / PRECISION;
 
                 // pointsWithdrawn[epochId][vault][user][tokens[i]] == userPoints
                 // Which means they claimed all points for that token
@@ -343,7 +344,7 @@ contract RewardsManager {
             }
 
             // We multiply just to avoid rounding
-            uint256 ratioPoints = MAX_BPS * userPoints / vaultTotalPoints;
+            uint256 ratioPoints = PRECISION * userPoints / vaultTotalPoints;
 
             // NOTE: We don't set the pointsWithdrawn here because we will set the user shares to 0 later
             // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
@@ -357,7 +358,7 @@ contract RewardsManager {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * ratioPoints / MAX_BPS;
+                uint256 tokensForUser = totalAdditionalReward * ratioPoints / PRECISION;
 
                 amounts[i] += tokensForUser;
                 unchecked { ++i; }
@@ -411,7 +412,8 @@ contract RewardsManager {
     /// @notice Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
-    function addReward(uint256 epochId, address vault, address token, uint256 amount) public {
+    /// @notice nonReentrant because tokens could inflate rewards, this would only apply to the specific token, see reports for more
+    function addReward(uint256 epochId, address vault, address token, uint256 amount) public nonReentrant {
         require(epochId >= currentEpoch);
 
         // Check change in balance to support `feeOnTransfer` tokens as well
