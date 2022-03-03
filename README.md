@@ -4,7 +4,7 @@ DO NOT USE IN PROD, there are known vulnerabilities!!!!
 ## Notion / Overview
 https://mint-salesman-909.notion.site/Badger-Rewards-Intro-58ce9b2026dc4c39a180a1c3bac47477
 
-## Miro Architecture
+## Miro Architecture
 https://miro.com/app/board/uXjVOQU-Z8A=/?invite_link_id=120636167771
 
 Allows to vest rewards based on time spent
