@@ -21,7 +21,7 @@ import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 /// Total supply may be different
 /// However, we calculate your share by just multiplying the share * seconds in the vault
 /// If you had X tokens a epoch N, and you had X tokens at epoch N+1
-/// You'll get N + 1 * SECONDS_PER_EPOCH points in epoch N+1 if you redeem at N+2
+/// You'll get X * SECONDS_PER_EPOCH points in epoch N+1 if you redeem at N+2
 /// If you have X tokens at epoch N and withdraw, you'll get TIME_IN_EPOCH * X points
 
 /// MAIN ISSUE
