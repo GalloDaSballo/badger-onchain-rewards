@@ -73,8 +73,6 @@ contract RewardsManager is ReentrancyGuard {
 
     mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
     mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrueTimestampepochId][vaultAddress][userAddress]
-    mapping(address => uint256) public lastVaultDeposit; // Last Epoch in which any user deposited in the vault, used to know if vault needs to be brought to new epoch
-    // Or just have the check and skip the op if need be
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; // Calculate points per each epoch shares[epochId][vaultAddress][userAddress]    
     mapping(uint256 => mapping(address => uint256)) public totalSupply; // Sum of all deposits for a vault at an epoch totalSupply[epochId][vaultAddress]
@@ -399,13 +397,13 @@ contract RewardsManager is ReentrancyGuard {
     /// === Bulk Claims END === ///
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
-    function addRewards(uint256[] calldata epochIds, address[] calldata tokens, address[] calldata vaults, uint256[] calldata amounts) external {
+    function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external {
         require(vaults.length == epochIds.length); // dev: length mismatch
         require(vaults.length == amounts.length); // dev: length mismatch
         require(vaults.length == tokens.length); // dev: length mismatch
 
         for(uint256 i = 0; i < vaults.length; ++i){
-            addReward(epochIds[i], tokens[i], vaults[i], amounts[i]);   
+            addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);   
         }
     }
 
@@ -423,9 +421,6 @@ contract RewardsManager is ReentrancyGuard {
 
         rewards[epochId][vault][token] += endBalance - startBalance;
     }
-
-
-    // Total Points per epoch = Total Deposits * Total Points per Second * Seconds in Epoch
 
     /// **== Notify System ==** ///
 
