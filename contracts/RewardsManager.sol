@@ -429,6 +429,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice After that, just change the balances
     /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
     function notifyTransfer(address from, address to, uint256 amount) external {
+        require(from != to); // dev: can't transfer to yourself
         // NOTE: Anybody can call this because it's indexed by msg.sender
         address vault = msg.sender; // Only the vault can change these
 
