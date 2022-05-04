@@ -1,5 +1,4 @@
-# RewardsManager - NOT AUDITED - WIP - USE AT OWN RISK - UNDISCLOSED VULNERABILITIES!!!! DO NOT USE!!!
-DO NOT USE IN PROD, there are known vulnerabilities!!!!
+# RewardsManager - NOT AUDITED
 
 ## Notion / Overview
 https://mint-salesman-909.notion.site/Badger-Rewards-Intro-58ce9b2026dc4c39a180a1c3bac47477
