@@ -212,11 +212,14 @@ contract RewardsManager is ReentrancyGuard {
         require(epochId < currentEpoch); // dev: !can only claim ended epochs
 
         accrueUser(epochId, vault, user);
+        accrueUser(epochId, vault, address(this)); // Accrue this contract points
         accrueVault(epochId, vault);
 
         // Now that they are accrue, just use the points to estimate reward and send
         uint256 userPoints = points[epochId][vault][user];
         uint256 vaultTotalPoints = totalPoints[epochId][vault];
+
+        uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
 
         uint256 pointsLeft = userPoints - pointsWithdrawn[epochId][vault][user][token];
 
@@ -228,8 +231,11 @@ contract RewardsManager is ReentrancyGuard {
         uint256 totalAdditionalReward = rewards[epochId][vault][token];
 
         // We multiply just to avoid rounding
-        uint256 ratioForPointsLeft = PRECISION * pointsLeft / vaultTotalPoints;
-        uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / PRECISION;
+        // uint256 ratioForPointsLeft = PRECISION * pointsLeft / (vaultTotalPoints - thisContractVaultPoints);
+        // uint256 tokensForUser = totalAdditionalReward * ratioForPointsLeft / PRECISION;
+
+        // NOTE: Refactored to avoid loss of intermediary precision
+        uint256 tokensForUser = totalAdditionalReward * pointsLeft / (vaultTotalPoints - thisContractVaultPoints);
 
         pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
 
@@ -259,6 +265,7 @@ contract RewardsManager is ReentrancyGuard {
         for(uint epochId = epochStart; epochId <= epochEnd; ++epochId) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
+            accrueUser(epochId, vault, address(this)); // Accrue this contract points
             accrueVault(epochId, vault);
 
             // Use the reward ratio for the tokens
@@ -268,13 +275,14 @@ contract RewardsManager is ReentrancyGuard {
             uint256 userPoints = points[epochId][vault][user];
 
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
+            uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
+
 
             if(userPoints == 0){
                 continue;
             }
 
             // We multiply just to avoid rounding
-            uint256 ratioPoints = PRECISION * userPoints / vaultTotalPoints;
 
             // Loop over the tokens and see the points here
             for(uint256 i = 0; i < tokensLength; ++i){
@@ -285,7 +293,7 @@ contract RewardsManager is ReentrancyGuard {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * ratioPoints / PRECISION;
+                uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
 
                 // pointsWithdrawn[epochId][vault][user][tokens[i]] == userPoints
                 // Which means they claimed all points for that token
@@ -326,6 +334,7 @@ contract RewardsManager is ReentrancyGuard {
         for(uint epochId = epochStart; epochId <= epochEnd;) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
+            accrueUser(epochId, vault, address(this)); // Accrue this contract points
             accrueVault(epochId, vault);
 
             // Use the reward ratio for the tokens
@@ -335,14 +344,13 @@ contract RewardsManager is ReentrancyGuard {
             uint256 userPoints = points[epochId][vault][user];
 
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
+            uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
+
 
             if(userPoints == 0){
                 unchecked { ++epochId; }
                 continue;
             }
-
-            // We multiply just to avoid rounding
-            uint256 ratioPoints = PRECISION * userPoints / vaultTotalPoints;
 
             // NOTE: We don't set the pointsWithdrawn here because we will set the user shares to 0 later
             // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
@@ -356,7 +364,7 @@ contract RewardsManager is ReentrancyGuard {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * ratioPoints / PRECISION;
+                uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
 
                 amounts[i] += tokensForUser;
                 unchecked { ++i; }

@@ -29,3 +29,12 @@ Status: Vulnerabilities have been mitigated
 Commit: 921ffa1edb42
 Report: https://docs.google.com/document/d/1l3sWKgKrp29syOj3_dX7tCozVtmpwYOIykBj1A-unVU/edit#
 Status: WIP - Most findings have been mitigated
+
+
+## New Issue
+
+Problem:
+Vault tokens being sent to this contract causes unfairness in claiming tokens as the rewards contract will receive a portion of the rewards
+
+Solution:
+Accrue the contract and calculate the totalSupply - thisContract Supply
