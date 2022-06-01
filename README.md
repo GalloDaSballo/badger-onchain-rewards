@@ -31,9 +31,9 @@ Report: https://docs.google.com/document/d/1l3sWKgKrp29syOj3_dX7tCozVtmpwYOIykBj
 Status: WIP - Most findings have been mitigated
 
 
-## New Issue
 
-Problem:
+
+Additional Fixes:
 Vault tokens being sent to this contract causes unfairness in claiming tokens as the rewards contract will receive a portion of the rewards
 
 Solution:
