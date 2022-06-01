@@ -31,10 +31,11 @@ def second_user():
     return accounts[3]
 
 @pytest.fixture
-def token(user):
+def token(user, deployer):
     whale = accounts.at("0xD0A7A8B98957b9CD3cFB9c0425AbE44551158e9e", force=True)
     t = interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
-    t.transfer(user, t.balanceOf(whale), {"from": whale})
+    t.transfer(user, t.balanceOf(whale) // 2, {"from": whale})
+    t.transfer(deployer, t.balanceOf(whale) // 2, {"from": whale})
     return t
 
 @pytest.fixture
