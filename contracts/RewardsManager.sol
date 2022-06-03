@@ -513,10 +513,10 @@ contract RewardsManager is ReentrancyGuard {
             return;
         }
 
-        uint256 timeInEpochSinceLastAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
+        uint256 timeLeftToAccrue = getUserTimeLeftToAccrue(epochId, vault, user);
 
         // Optimization: time is 0, end early
-        if(timeInEpochSinceLastAccrue == 0){
+        if(timeLeftToAccrue == 0){
             // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
             // As such we still update the timestamp for historical purposes
             lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
@@ -524,7 +524,7 @@ contract RewardsManager is ReentrancyGuard {
         }
 
         // Run the math and update the system
-        uint256 newPoints = currentBalance * timeInEpochSinceLastAccrue;
+        uint256 newPoints = timeLeftToAccrue * currentBalance;
         
         // Track user rewards
         points[epochId][vault][user] += newPoints;
