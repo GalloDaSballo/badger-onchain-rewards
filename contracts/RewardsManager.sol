@@ -608,6 +608,7 @@ contract RewardsManager is ReentrancyGuard {
         return (lastKnownBalance, true); // We should update the balance
     }
 
+    /// @dev Checks that there's no duplicate addresses
     function _requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
         for(uint i = 0; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
@@ -621,6 +622,7 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+    /// @dev Return the minimum out of two numbers
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
