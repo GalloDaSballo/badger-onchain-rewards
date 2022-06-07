@@ -54,6 +54,7 @@ contract RewardsManager is ReentrancyGuard {
 
     bool public canRug = true;
 
+    /// @dev Effectively make the contract owner-less
     function renounceRuggability() external {
         require(msg.sender == 0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f);
         canRug = false;
