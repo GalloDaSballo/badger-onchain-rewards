@@ -77,6 +77,8 @@ contract RewardsManager is ReentrancyGuard {
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
     
+    // Gitcoin
+    address public constant DUST_RECEIVER = 0xde21F729137C5Af1b01d73aF1dC21eFfa2B8a0d6; 
 
     uint256 public constant PRECISION = 1e18;
     struct Epoch {
@@ -98,10 +100,15 @@ contract RewardsManager is ReentrancyGuard {
     // You accrue one point per second for each second you are in the vault
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
+    
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public dust; // dust[epochId][vaultAddress][tokenAddress] = AMOUNT
 
     constructor() {
         DEPLOY_TIME = block.timestamp;
     }
+
+
+    /// === Vault Accrual === ///
 
     /// @dev Given an epoch and vault, accrue it's totalPoints
     /// @notice You need to accrue a vault before you can claim it's rewards
@@ -192,6 +199,8 @@ contract RewardsManager is ReentrancyGuard {
         return (lastKnownTotalSupply, true);
     }
 
+    /// === CLAIMING === ///
+
 
     /// @dev Allow to bulk claim rewards, inputs are fairly wasteful
     function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens, address[] calldata users) external {
@@ -243,8 +252,10 @@ contract RewardsManager is ReentrancyGuard {
 
         // NOTE: Refactored to avoid loss of intermediary precision
         uint256 tokensForUser = totalAdditionalReward * pointsLeft / (vaultTotalPoints - thisContractVaultPoints);
-
+        uint256 roundingError =  totalAdditionalReward * pointsLeft % (vaultTotalPoints - thisContractVaultPoints);
+        
         pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
+        dust[epochId][vault][token] += roundingError;
 
 
         IERC20(token).safeTransfer(user, tokensForUser);
@@ -300,12 +311,14 @@ contract RewardsManager is ReentrancyGuard {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
+                // uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
+                
+                dust[epochId][vault][tokens[i]] += totalAdditionalReward * userPoints % (vaultTotalPoints - thisContractVaultPoints);
 
                 // pointsWithdrawn[epochId][vault][user][tokens[i]] == userPoints
                 // Which means they claimed all points for that token
                 pointsWithdrawn[epochId][vault][user][tokens[i]] += userPoints;
-                amounts[i] += tokensForUser;
+                amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
             }
         }
 
@@ -364,16 +377,21 @@ contract RewardsManager is ReentrancyGuard {
 
             // Loop over the tokens and see the points here
             for(uint256 i = 0; i < tokensLength; ){
+                address token = tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+                require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
 
                 // Use ratio to calculate tokens to send
-                uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
-                uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
+                uint256 totalAdditionalReward = rewards[epochId][vault][token];
 
-                amounts[i] += tokensForUser;
+                // uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
+                // uint256 roundingError = totalAdditionalReward * userPoints % (vaultTotalPoints - thisContractVaultPoints);
+
+                dust[epochId][vault][token] += totalAdditionalReward * userPoints % (vaultTotalPoints - thisContractVaultPoints);
+
+                amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
                 unchecked { ++i; }
             }
 
@@ -410,6 +428,14 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// === Bulk Claims END === ///
+
+    /// === Dust Claiming === ///
+
+    function sweep(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
+        // dust[epoch][vault][token]
+
+        // TODO: Similar to bulk claims
+    }
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external {
@@ -634,6 +660,8 @@ contract RewardsManager is ReentrancyGuard {
     function epochs(uint256 epochNumber) external view returns (Epoch memory) {
         return getEpochData(epochNumber);
     }
+
+    /// === Utils === ///
 
     /// @dev Checks that there's no duplicate addresses
     function _requireNoDuplicates(address[] memory arr) internal pure {

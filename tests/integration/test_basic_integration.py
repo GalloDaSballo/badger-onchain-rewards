@@ -140,3 +140,5 @@ def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_
 
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
   assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT * 2, 1)
+
+  assert initialized_contract.dust(EPOCH, real_vault, real_vault) == 1 ## There is some dust and we can claim it
