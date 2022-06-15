@@ -141,4 +141,12 @@ def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
   assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT * 2, 1)
 
-  assert initialized_contract.dust(EPOCH, real_vault, real_vault) == 1 ## There is some dust and we can claim it
+  ## DUST
+  assert initialized_contract.dust(EPOCH, real_vault, real_vault) > 0 ## There is some dust and we can claim it
+
+  ## More exactly dust / total points is 1, meaning we didn't distribute 1 token
+
+  total_points = initialized_contract.totalPoints(EPOCH, real_vault)
+  contract_points = initialized_contract.points(EPOCH, real_vault, initialized_contract)
+
+  assert initialized_contract.dust(EPOCH, real_vault, real_vault) // (total_points - contract_points) == 1
