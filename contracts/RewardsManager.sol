@@ -434,7 +434,11 @@ contract RewardsManager is ReentrancyGuard {
     function sweep(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
         // dust[epoch][vault][token]
 
-        // TODO: Similar to bulk claims
+        // TODO: Similar to bulk claims, remember to divide by same divisor
+
+        /// if dust[epochId][vault][token] += totalAdditionalReward * userPoints % (vaultTotalPoints - thisContractVaultPoints);
+        /// Then tokenToSend = dust[epochId][vault][token] // (vaultTotalPoints - thisContractVaultPoints)
+        // Makes me wonder if it will always be 1 token at most
     }
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
