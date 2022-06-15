@@ -43,14 +43,10 @@ def test_full_deposit_one_year(initialized_contract, user, fake_vault, token):
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Wait 51 epochs
   for x in range(1, 52):
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
-    initialized_contract.startNextEpoch({"from": user})
 
   ## Claim rewards here
   tx = initialized_contract.claimReward(EPOCH, fake_vault, token, user)
@@ -87,7 +83,6 @@ def test_full_deposit_claim_one_year_of_rewards(initialized_contract, user, fake
     initialized_contract.addReward(x, fake_vault, token, REWARD_AMOUNT, {"from": user})
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
-    initialized_contract.startNextEpoch({"from": user})
 
     epochs_to_claim.append(x)
     vaults_to_claim.append(fake_vault)
@@ -122,12 +117,10 @@ def test_full_deposit_claim_one_year_of_rewards_with_bulk_function_no_optimizati
     initialized_contract.addReward(x, fake_vault, token, REWARD_AMOUNT, {"from": user})
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
-    initialized_contract.startNextEpoch({"from": user})
 
   ## Wait out the last epoch so we can claim it
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.startNextEpoch({"from": user})
 
   ## Claim rewards here
   tx = initialized_contract.claimBulkTokensOverMultipleEpochs(1, 52, fake_vault, [token], user, {"from": user})
@@ -158,12 +151,10 @@ def test_full_deposit_claim_one_year_of_rewards_with_optimization(initialized_co
     initialized_contract.addReward(x, fake_vault, token, REWARD_AMOUNT, {"from": user})
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
-    initialized_contract.startNextEpoch({"from": user})
 
   ## Wait out the last epoch so we can claim it
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.startNextEpoch({"from": user})
 
   ## Claim rewards here
   tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, 52, fake_vault, [token], {"from": user})

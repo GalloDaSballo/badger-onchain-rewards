@@ -44,7 +44,6 @@ def test_accrue_future_balance_out_of_whack(initialized_contract, user, fake_vau
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.startNextEpoch()
 
 
   ## Deposit only: INITIAL_DEPOSIT
@@ -84,7 +83,6 @@ def test_accrue_future_breaks_time_left_to_accrue(initialized_contract, user, fa
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.startNextEpoch()
 
   ## Sleep more so we have a full epoch to accrue
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)

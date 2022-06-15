@@ -29,9 +29,6 @@ def test_full_deposit_one_user(initialized_contract, user, real_vault, token):
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, real_vault, token, user)
 
@@ -62,9 +59,6 @@ def test_basic_with_vault_emitted(initialized_contract, user, real_vault, token,
   ## Wait the epoch to end
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
 
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)
@@ -97,15 +91,9 @@ def test_basic_with_vault_emitted_with_empty_epoch(initialized_contract, user, r
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Wait the rewards epoch to end
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
 
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)
@@ -140,15 +128,9 @@ def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Wait the rewards epoch to end
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
 
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)

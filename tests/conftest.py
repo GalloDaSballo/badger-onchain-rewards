@@ -60,7 +60,6 @@ def initialized_contract(deployer):
     """
 
     contract = RewardsManager.deploy({"from": deployer})
-    contract.startNextEpoch({"from": deployer})
 
     return contract 
 
@@ -72,7 +71,6 @@ def setup_contract(deployer):
     """
 
     contract = RewardsManager.deploy({"from": deployer})
-    contract.startNextEpoch({"from": deployer})
 
     ## TODO: Add a deposit
     ## TODO: Add rewards

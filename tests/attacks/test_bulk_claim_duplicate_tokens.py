@@ -23,7 +23,6 @@ def test_bulk_claim_duplicate_tokens(initialized_contract, user, fake_vault, tok
   ## Time passes and a new epoch starts
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.startNextEpoch()
 
   ## Add rewards to vault for EPOCH + 1
   initialized_contract.addReward(EPOCH + 1, fake_vault, token, REWARD_AMOUNT, {"from": user})

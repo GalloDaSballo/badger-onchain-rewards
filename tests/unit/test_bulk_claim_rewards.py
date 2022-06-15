@@ -62,7 +62,7 @@ def test_claimBulkTokensOverMultipleEpochs_basic(initialized_contract, user, fak
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Claim rewards via the bulk function
   ## Btw, you can claim on someone elses behalf
@@ -135,7 +135,7 @@ def test_claimBulkTokensOverMultipleEpochs_permissions(initialized_contract, use
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   """
     You can claim for someone else
@@ -168,7 +168,7 @@ def test_claimBulkTokensOverMultipleEpochs_permissions(initialized_contract, use
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Claim token here
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
@@ -208,14 +208,14 @@ def test_claimBulkTokensOverMultipleEpochs_cannot_use_old_balance(initialized_co
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Wait the epoch to end 2
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   
   ## Wait the epoch to end 3
@@ -224,7 +224,7 @@ def test_claimBulkTokensOverMultipleEpochs_cannot_use_old_balance(initialized_co
 
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Second user withdraws at beginning of epoch 4
   initialized_contract.notifyTransfer(second_user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})

@@ -57,9 +57,6 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Claim rewards via the bulk function
   ## Btw only you can claim for yourself
   tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": user})
@@ -125,9 +122,6 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannotClaimForOthers(initial
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   """
     Cannot claim for someone else
   """
@@ -166,9 +160,6 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   """
     Cannot claim for someone else
   """
@@ -200,7 +191,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Claim token here
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
@@ -240,14 +231,14 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Wait the epoch to end 2
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   
   ## Wait the epoch to end 3
@@ -256,7 +247,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
 
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Second user withdraws at beginning of epoch 4
   initialized_contract.notifyTransfer(second_user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})

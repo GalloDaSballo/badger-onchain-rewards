@@ -80,8 +80,6 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
 
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
-  initialized_contract.startNextEpoch()
-
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 100000)
   chain.mine()
 
