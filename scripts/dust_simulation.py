@@ -1,9 +1,9 @@
 from random import seed
 from random import random
 
-USERS_RANGE = 100
+USERS_RANGE = 100_000
 SHARES_DECIMALS = 18
-RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
+RANGE = 10_000_000 ## Shares can be from 1 to 10M with SHARES_DECIMALS
 SECONDS_PER_EPOCH = 604800
 
 TOTAL_REWARD = 10 ** 6 ## 10 USDC example
