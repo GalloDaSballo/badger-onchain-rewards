@@ -1,9 +1,9 @@
-import brownie
-from brownie import *
-from helpers.utils import (
-    approx,
-)
-AddressZero = "0x0000000000000000000000000000000000000000"
+from brownie import chain
+from brownie.test import given, strategy
+
+from helpers.utils import approx
+
+
 MaxUint256 = str(int(2 ** 256 - 1))
 
 """
@@ -107,16 +107,16 @@ def test_basic_with_vault_emitted_with_empty_epoch(initialized_contract, user, r
   Add rewards for epoch 1 and 2
   Claim for epoch 1
 """
-def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_vault, token, deployer):
-  REWARD_AMOUNT = 1e19
+@given(reward_amount=strategy('uint256', min_value=1e16 max_value=1e20))
+def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_vault, token, deployer, reward_amount):
   EPOCH = initialized_contract.currentEpoch()
 
   ## Add rewards as form of vault token here
   token.approve(real_vault, MaxUint256, {"from": deployer})
-  real_vault.deposit(REWARD_AMOUNT * 2, {"from": deployer})
+  real_vault.deposit(reward_amount * 2, {"from": deployer})
   real_vault.approve(initialized_contract, MaxUint256, {"from": deployer})
-  initialized_contract.addReward(EPOCH, real_vault, real_vault, REWARD_AMOUNT, {"from": deployer})
-  initialized_contract.addReward(EPOCH + 1, real_vault, real_vault, REWARD_AMOUNT, {"from": deployer})
+  initialized_contract.addReward(EPOCH, real_vault, real_vault, reward_amount, {"from": deployer})
+  initialized_contract.addReward(EPOCH + 1, real_vault, real_vault, reward_amount, {"from": deployer})
 
   ## Because user has the tokens too, we check the balance here
   initial_reward_balance = real_vault.balanceOf(user)
@@ -139,14 +139,15 @@ def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_
   initialized_contract.claimReward(EPOCH + 1, real_vault, real_vault, deployer)
 
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
-  assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT * 2, 1)
+  assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + reward_amount * 2, 1)
 
   ## DUST
-  assert initialized_contract.dust(EPOCH, real_vault, real_vault) > 0 ## There is some dust and we can claim it
+  dust = initialized_contract.dust(EPOCH, real_vault, real_vault)
+  assert dust == 0 or dust == 1 ## There may be some dust and we can claim it
 
   ## More exactly dust / total points is 1, meaning we didn't distribute 1 token
 
   total_points = initialized_contract.totalPoints(EPOCH, real_vault)
   contract_points = initialized_contract.points(EPOCH, real_vault, initialized_contract)
 
-  assert initialized_contract.dust(EPOCH, real_vault, real_vault) // (total_points - contract_points) == 1
+  assert dust // (total_points - contract_points) == 0 or dust // (total_points - contract_points) == 1
