@@ -1,6 +1,6 @@
-from brownie import *
-from dotmap import DotMap
+from brownie import RewardsManager, accounts, interface
 import pytest
+
 
 """
   Deploy the Contract
@@ -11,7 +11,7 @@ import pytest
 
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def deployer():
     return accounts[0]
 
@@ -22,7 +22,7 @@ def deployer():
 def fake_vault():
     return accounts[1]
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def user():
     return accounts[2]
 
@@ -30,7 +30,7 @@ def user():
 def second_user():
     return accounts[3]
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def token(user, deployer):
     whale = accounts.at("0xD0A7A8B98957b9CD3cFB9c0425AbE44551158e9e", force=True)
     t = interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
@@ -50,10 +50,10 @@ def rewards_contract(deployer):
 
     contract = RewardsManager.deploy({"from": deployer})
 
-    return contract 
+    return contract
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def initialized_contract(deployer):
     """
     Deploys the contract with full setup (epoch, rewards, deposit)
@@ -61,7 +61,7 @@ def initialized_contract(deployer):
 
     contract = RewardsManager.deploy({"from": deployer})
 
-    return contract 
+    return contract
 
 
 @pytest.fixture
@@ -75,7 +75,7 @@ def setup_contract(deployer):
     ## TODO: Add a deposit
     ## TODO: Add rewards
 
-    return contract 
+    return contract
 
 ## Forces reset before each test
 @pytest.fixture(autouse=True)
