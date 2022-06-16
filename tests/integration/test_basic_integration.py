@@ -1,9 +1,8 @@
-import brownie
-from brownie import *
-from helpers.utils import (
-    approx,
-)
-AddressZero = "0x0000000000000000000000000000000000000000"
+from brownie import chain
+
+from helpers.utils import approx
+
+
 MaxUint256 = str(int(2 ** 256 - 1))
 
 """
@@ -108,7 +107,7 @@ def test_basic_with_vault_emitted_with_empty_epoch(initialized_contract, user, r
   Claim for epoch 1
 """
 def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_vault, token, deployer):
-  REWARD_AMOUNT = 1e19
+  REWARD_AMOUNT = 1e20
   EPOCH = initialized_contract.currentEpoch()
 
   ## Add rewards as form of vault token here
