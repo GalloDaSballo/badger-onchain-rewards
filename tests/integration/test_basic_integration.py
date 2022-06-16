@@ -107,7 +107,7 @@ def test_basic_with_vault_emitted_with_empty_epoch(initialized_contract, user, r
   Add rewards for epoch 1 and 2
   Claim for epoch 1
 """
-@given(reward_amount=strategy('uint256', min_value=1e16 max_value=1e20))
+@given(reward_amount=strategy('uint256', min_value=1e16, max_value=1e20))
 def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_vault, token, deployer, reward_amount):
   EPOCH = initialized_contract.currentEpoch()
 
