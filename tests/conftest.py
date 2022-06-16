@@ -11,7 +11,7 @@ import pytest
 
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def deployer():
     return accounts[0]
 
@@ -22,7 +22,7 @@ def deployer():
 def fake_vault():
     return accounts[1]
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def user():
     return accounts[2]
 
@@ -30,7 +30,7 @@ def user():
 def second_user():
     return accounts[3]
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def token(user, deployer):
     whale = accounts.at("0xD0A7A8B98957b9CD3cFB9c0425AbE44551158e9e", force=True)
     t = interface.IERC20("0x3472A5A71965499acd81997a54BBA8D852C6E53d")
@@ -53,7 +53,7 @@ def rewards_contract(deployer):
     return contract
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def initialized_contract(deployer):
     """
     Deploys the contract with full setup (epoch, rewards, deposit)
