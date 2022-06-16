@@ -28,7 +28,7 @@ Status: Vulnerabilities have been mitigated
 
 Commit: 921ffa1edb42
 Report: https://docs.google.com/document/d/1l3sWKgKrp29syOj3_dX7tCozVtmpwYOIykBj1A-unVU/edit#
-Status: WIP - Most findings have been mitigated
+Status: Vulnerabilities have been mitigated
 
 
 
