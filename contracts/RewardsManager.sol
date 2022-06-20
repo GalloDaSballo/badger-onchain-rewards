@@ -628,7 +628,7 @@ contract RewardsManager is ReentrancyGuard {
 
     function getEpochData(uint256 epochNumber) public view returns (Epoch memory) {
         uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochNumber - 1);
-        uint256 end = DEPLOY_TIME + SECONDS_PER_EPOCH * epochNumber;
+        uint256 end = start + SECONDS_PER_EPOCH;
         return Epoch(start, end);
     }
 
