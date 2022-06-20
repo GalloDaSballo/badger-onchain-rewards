@@ -6,12 +6,10 @@ from helpers.utils import (
 AddressZero = "0x0000000000000000000000000000000000000000"
 MaxUint256 = str(int(2 ** 256 - 1))
 
-## TODO: Test claimBulkTokensOverMultipleEpochsOptimized
+
 ## Make sure: Old balances are zero and can't be changed
 ## Latest balance is untouched, ideally ported over if need be
 
-
-## TODO
 """
   _basic
   Optimized Claim works - DONE
@@ -288,8 +286,28 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   ## Balance at 1 is original deposit
   initialized_contract.getBalanceAtEpoch(1, fake_vault, second_user)[0] == INITIAL_DEPOSIT
 
+## Claim points with no deposit
+def test_bulk_claim_no_points(initialized_contract, user, fake_vault, token, second_user):
+  initial_bal = token.balanceOf(second_user)
 
-## TODO: With a lot of attention
-## Optimized -> Withdraw 
-## Withdraw -> Optimized -> Withdraw
-## See if any of those allows stealing funds
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## With no points you get no rewards
+  initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, 1, fake_vault, [token], {"from": user})
+
+  ## No tokens received
+  assert initial_bal == token.balanceOf(second_user)
+
+def test_bulk_claim_revert(initialized_contract, user, fake_vault, token, second_user):
+  ## Revert is epoch_start > epoch_end
+  with brownie.reverts():
+    initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, 0, fake_vault, [token], {"from": user})
+  
+
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## Revert if claiming same token
+  with brownie.reverts():
+    initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, 1, fake_vault, [token, token], {"from": user})

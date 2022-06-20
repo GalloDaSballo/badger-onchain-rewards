@@ -164,3 +164,14 @@ def test_transfer_reverts(initialized_contract, user, fake_vault, second_user, t
   with brownie.reverts():
     initialized_contract.notifyTransfer(user, second_user, INITIAL_DEPOSIT, {"from": fake_vault})
 
+
+
+def test_notify_transfer_reverts_if_send_to_self(initialized_contract, user, fake_vault, second_user):
+  INITIAL_DEPOSIT = 1e18
+
+  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+
+  with brownie.reverts():
+    initialized_contract.notifyTransfer(user, user, INITIAL_DEPOSIT, {"from": fake_vault})
+
+  initialized_contract.notifyTransfer(user, second_user, INITIAL_DEPOSIT, {"from": fake_vault})
