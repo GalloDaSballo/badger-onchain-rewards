@@ -57,8 +57,6 @@ def test_cant_add_rewards_in_the_past(initialized_contract, user, fake_vault, to
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  initialized_contract.startNextEpoch()
-
   with brownie.reverts():
     initialized_contract.addReward(1, fake_vault, token, REWARD_AMOUNT, {"from": user})
 

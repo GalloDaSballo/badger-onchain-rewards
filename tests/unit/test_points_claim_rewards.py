@@ -42,7 +42,7 @@ def test_basic_claim_twice_points_check(initialized_contract, user, fake_vault, 
   chain.mine()
 
   ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
+  ## initialized_contract.startNextEpoch()
 
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, fake_vault, token, user)
@@ -91,7 +91,7 @@ def test_claim_in_bulk_works_just_like_normal(initialized_contract, user, fake_v
     chain.mine()
 
     ## Go next epoch else you can't claim
-    initialized_contract.startNextEpoch()
+    ## initialized_contract.startNextEpoch()
 
     ## Claim rewards here
     initialized_contract.claimRewards([EPOCH], [fake_vault], [token], [user])

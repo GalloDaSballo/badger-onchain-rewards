@@ -1,6 +1,6 @@
-from brownie import *
-from dotmap import DotMap
+from brownie import RewardsManager, accounts, interface
 import pytest
+
 
 """
   Deploy the Contract
@@ -50,7 +50,7 @@ def rewards_contract(deployer):
 
     contract = RewardsManager.deploy({"from": deployer})
 
-    return contract 
+    return contract
 
 
 @pytest.fixture
@@ -60,9 +60,8 @@ def initialized_contract(deployer):
     """
 
     contract = RewardsManager.deploy({"from": deployer})
-    contract.startNextEpoch({"from": deployer})
 
-    return contract 
+    return contract
 
 
 @pytest.fixture
@@ -72,12 +71,11 @@ def setup_contract(deployer):
     """
 
     contract = RewardsManager.deploy({"from": deployer})
-    contract.startNextEpoch({"from": deployer})
 
     ## TODO: Add a deposit
     ## TODO: Add rewards
 
-    return contract 
+    return contract
 
 ## Forces reset before each test
 @pytest.fixture(autouse=True)

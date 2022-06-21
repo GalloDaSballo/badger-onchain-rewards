@@ -34,9 +34,6 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault, token):
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Claim rewards here
   initialized_contract.claimReward(EPOCH, fake_vault, token, user)
 

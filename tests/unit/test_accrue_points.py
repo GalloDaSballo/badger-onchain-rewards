@@ -80,8 +80,6 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
 
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
-  initialized_contract.startNextEpoch()
-
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 100000)
   chain.mine()
 
@@ -111,5 +109,14 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
 
-## TODO Accrue points work proportionally to time of last accrue
-## This is a big TODO if I can do it properly
+## One deposit, total supply is the one deposit
+## Means that at end of epoch
+## My points == total Points
+def test_revert_if_accrue_future(initialized_contract, user, fake_vault):
+  epoch = initialized_contract.currentEpoch()
+
+  with brownie.reverts():
+    initialized_contract.accrueUser(epoch + 1, fake_vault, user) 
+  
+  with brownie.reverts(): 
+    initialized_contract.accrueVault(epoch + 1, fake_vault)

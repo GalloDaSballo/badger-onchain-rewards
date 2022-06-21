@@ -1,6 +1,6 @@
-from brownie import *
-from dotmap import DotMap
 import pytest
+from brownie import TestVault
+
 
 """
   Extra set of fixtures for integration test with BadgerVaults
