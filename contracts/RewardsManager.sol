@@ -220,7 +220,7 @@ contract RewardsManager is ReentrancyGuard {
         // Then, given the list of tokens I execute the transfers
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
-        for(uint256 i = 0; i < epochLength; ) {
+        for(uint256 i; i < epochLength; ) {
             claimReward(epochsToClaim[i], vaults[i], tokens[i], users[i]);
 
             unchecked {
@@ -309,7 +309,7 @@ contract RewardsManager is ReentrancyGuard {
             // We multiply just to avoid rounding
 
             // Loop over the tokens and see the points here
-            for(uint256 i = 0; i < tokensLength; ++i){
+            for(uint256 i; i < tokensLength; ++i){
                 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
@@ -324,7 +324,7 @@ contract RewardsManager is ReentrancyGuard {
         }
 
         // Go ahead and transfer
-        for(uint256 i = 0; i < tokensLength; ++i){
+        for(uint256 i; i < tokensLength; ++i){
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
         }
     }
@@ -377,7 +377,7 @@ contract RewardsManager is ReentrancyGuard {
             // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
 
             // Loop over the tokens and see the points here
-            for(uint256 i = 0; i < tokensLength; ){
+            for(uint256 i; i < tokensLength; ){
                 address token = tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
@@ -418,7 +418,7 @@ contract RewardsManager is ReentrancyGuard {
         delete points[epochEnd][vault][user];
 
         // Go ahead and transfer
-        for(uint256 i = 0; i < tokensLength; ){
+        for(uint256 i; i < tokensLength; ){
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
             unchecked { ++i; }
         }
@@ -433,7 +433,7 @@ contract RewardsManager is ReentrancyGuard {
         require(vaultsLength == amounts.length); // dev: length mismatch
         require(vaultsLength == tokens.length); // dev: length mismatch
 
-        for(uint256 i = 0; i < vaultsLength; ){
+        for(uint256 i; i < vaultsLength; ){
             addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);
 
             unchecked {
@@ -676,7 +676,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @dev Checks that there's no duplicate addresses
     function _requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
-        for(uint i = 0; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
+        for(uint i; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
             for (uint j = i + 1; j < arrLength; ) {
                 require(arr[i] != arr[j]);
 
