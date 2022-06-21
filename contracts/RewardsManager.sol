@@ -172,13 +172,17 @@ contract RewardsManager is ReentrancyGuard {
         uint256 lastAccrueEpoch = 0; // Not found
 
         // In this case we gotta loop until we find the last known totalSupply which was accrued
-        for(uint256 i = epochId; i > 0; --i){
+        for(uint256 i = epochId; i > 0; ){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
             if(lastAccruedTimestamp[i][vault] != 0) {
                 lastAccrueEpoch = i;
                 break; // Found it
+            }
+
+            unchecked {
+                --i;
             }
         }
 
@@ -216,8 +220,12 @@ contract RewardsManager is ReentrancyGuard {
         // Then, given the list of tokens I execute the transfers
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
-        for(uint256 i = 0; i < epochLength; ++i) {
+        for(uint256 i = 0; i < epochLength; ) {
             claimReward(epochsToClaim[i], vaults[i], tokens[i], users[i]);
+
+            unchecked {
+                ++i;
+            }
         }
     }
     
@@ -610,13 +618,17 @@ contract RewardsManager is ReentrancyGuard {
         // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
         // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
         // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
-        for(uint256 i = epochId; i > 0; --i){
+        for(uint256 i = epochId; i > 0; ){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
             if(lastUserAccrueTimestamp[i][vault][user] != 0) {
                 lastBalanceChangeEpoch = i;
                 break; // Found it
+            }
+
+            unchecked {
+                --i
             }
         }
 
