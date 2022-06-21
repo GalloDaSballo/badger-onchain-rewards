@@ -468,41 +468,44 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev handles a deposit for vault, to address of amount
     function _handleDeposit(address vault, address to, uint256 amount) internal {
-        accrueUser(currentEpoch(), vault, to);
-        accrueVault(currentEpoch(), vault); // We have to accrue vault as totalSupply is gonna change
+        uint256 cachedCurrentEpoch = currentEpoch();
+        accrueUser(cachedCurrentEpoch, vault, to);
+        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
         // Add deposit data for user
-        shares[currentEpoch()][vault][to] += amount;
+        shares[cachedCurrentEpoch][vault][to] += amount;
 
         // And total shares for epoch
-        totalSupply[currentEpoch()][vault] += amount;
+        totalSupply[cachedCurrentEpoch][vault] += amount;
     }
 
     /// @dev handles a withdraw for vault, from address of amount
     function _handleWithdrawal(address vault, address from, uint256 amount) internal {
-        accrueUser(currentEpoch(), vault, from);
-        accrueVault(currentEpoch(), vault); // We have to accrue vault as totalSupply is gonna change
+        uint256 cachedCurrentEpoch = currentEpoch();
+        accrueUser(cachedCurrentEpoch, vault, from);
+        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
         // Delete last shares
         // Delete deposit data or user
-        shares[currentEpoch()][vault][from] -= amount;
+        shares[cachedCurrentEpoch][vault][from] -= amount;
         // Reduce totalSupply
-        totalSupply[currentEpoch()][vault] -= amount;
+        totalSupply[cachedCurrentEpoch][vault] -= amount;
 
     }
 
     /// @dev handles a transfer for vault, from address to address of amount
     function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
+        uint256 cachedCurrentEpoch = currentEpoch();
         // Accrue points for from, so they get rewards
-        accrueUser(currentEpoch(), vault, from);
+        accrueUser(cachedCurrentEpoch, vault, from);
         // Accrue points for to, so they don't get too many rewards
-        accrueUser(currentEpoch(), vault, to);
+        accrueUser(cachedCurrentEpoch, vault, to);
 
          // Add deposit data for to
-        shares[currentEpoch()][vault][to] += amount;
+        shares[cachedCurrentEpoch][vault][to] += amount;
 
          // Delete deposit data for from
-        shares[currentEpoch()][vault][from] -= amount;
+        shares[cachedCurrentEpoch][vault][from] -= amount;
 
         // No change in total supply as this is a transfer
     }
