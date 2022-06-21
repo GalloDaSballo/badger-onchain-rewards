@@ -442,7 +442,7 @@ contract RewardsManager is ReentrancyGuard {
         uint256 endBalance = IERC20(token).balanceOf(address(this));
         
         unchecked {
-            rewards[epochId][vault][token] += endBalance - startBalance;
+            rewards[epochId][vault][token] = rewards[epochId][vault][token] + endBalance - startBalance;
         }
     }
 
