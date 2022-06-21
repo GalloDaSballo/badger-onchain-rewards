@@ -127,7 +127,7 @@ contract RewardsManager is ReentrancyGuard {
             return;
         }
         unchecked {
-            totalPoints[epochId][vault] += timeLeftToAccrue * supply;
+            totalPoints[epochId][vault] = totalPoints[epochId][vault] + timeLeftToAccrue * supply;
             lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
             // Setting to the actual time when `accrueVault` was called may help with debugging though
         }
@@ -542,11 +542,10 @@ contract RewardsManager is ReentrancyGuard {
             return;
         }
 
-        // Run the math and update the system
-        uint256 newPoints = timeLeftToAccrue * currentBalance;
-        
-        // Track user rewards
-        points[epochId][vault][user] += newPoints;
+        unchecked {
+            // Add Points and use + instead of +=
+            points[epochId][vault][user] = points[epochId][vault][user] + timeLeftToAccrue * currentBalance;
+        }
 
         // Set last time for updating the user
         lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
