@@ -633,7 +633,7 @@ contract RewardsManager is ReentrancyGuard {
             }
 
             unchecked {
-                --i
+                --i;
             }
         }
 
