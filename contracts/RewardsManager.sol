@@ -410,9 +410,9 @@ contract RewardsManager is ReentrancyGuard {
         // to get a non-zero balance and get points again
         // NOTE: Commented out as it actually seems to cost more gas due to refunds being capped
         // FOR AUDITORS: LMK if you can figure this out
-        // for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
-        //     delete lastUserAccrueTimestamp[epochId][vault][user];
-        // }
+        for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
+            delete lastUserAccrueTimestamp[epochId][vault][user];
+        }
         
         // For last epoch, we don't delete the shares, but we delete the points
         delete points[epochEnd][vault][user];
@@ -426,7 +426,80 @@ contract RewardsManager is ReentrancyGuard {
 
     /// === Bulk Claims END === ///
 
+    /// === Add Bulk Rewards === ///
+
+    /// @dev Given start and endEpoch, add an equal split of amount of token for the given vault
+    /// @notice Use this to save gas and do a linear distribution over multiple epochs
+    ///     E.g. for Liquidity Mining or to incentivize liquidity / rent it
+    /// @notice Will not work with feeOnTransferTokens, use the addReward function for those
+    function addBulkRewardsLinearly(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256 total) external nonReentrant {
+        require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
+        uint256 totalEpochs = endEpoch - startEpoch + 1;
+        require(totalEpochs != 0); // dev: no epochs
+        // Amount needs to be equally divisible per epoch, for custom additions, use this and then add more single rewards
+        require(total % totalEpochs == 0); // dev: multiple
+        uint256 perEpoch = total / totalEpochs;
+
+        // Transfer Token in, must receive the exact total
+        uint256 startBalance = IERC20(token).balanceOf(address(this));  
+        IERC20(token).safeTransferFrom(msg.sender, address(this), total);
+        uint256 endBalance = IERC20(token).balanceOf(address(this));
+
+        require(endBalance - startBalance == total); // dev: no weird fees bruh
+
+        // Give each epoch an equal amount of reward
+        for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
+            
+            unchecked {
+                rewards[epochId][vault][token] = rewards[epochId][vault][token] + perEpoch;
+            }
+
+            unchecked { 
+                ++epochId;
+            }
+        }
+    }
+
+    /// @dev Given start and endEpoch, add the token amounts of rewards for the interval specified
+    /// @notice Use this to save gas and do a custom distribution over multiple epochs
+    ///     E.g. for Liquidity Mining where there's a curve (less rewards over time)
+    /// @notice Will not work with feeOnTransferTokens, use the addReward function for those
+    function addBulkRewards(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256[] calldata amounts) external nonReentrant {
+        require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
+        uint256 totalEpochs = endEpoch - startEpoch + 1;
+        require(totalEpochs != 0); // dev: no epochs
+        require(totalEpochs == amounts.length); // dev: Length Mismatch
+
+        // Calculate total for one-off transfer
+        uint256 total;
+        for(uint256 i; i < totalEpochs; ) {
+            unchecked {
+                total = total + amounts[i];
+                ++i;
+            }
+        }
+
+        // Transfer Token in, must receive the exact total
+        uint256 startBalance = IERC20(token).balanceOf(address(this));  
+        IERC20(token).safeTransferFrom(msg.sender, address(this), total);
+        uint256 endBalance = IERC20(token).balanceOf(address(this));
+
+        require(endBalance - startBalance == total); // dev: no weird fees bruh
+
+        // Give each epoch an equal amount of reward
+        for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
+            unchecked {
+                rewards[epochId][vault][token] = rewards[epochId][vault][token] + amounts[epochId - startEpoch];
+            }
+
+            unchecked { 
+                ++epochId;
+            }
+        }
+    }
+
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
+    /// TODO: Fix extra non-reentrant
     function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external {
         uint256 vaultsLength = vaults.length;
         require(vaultsLength == epochIds.length); // dev: length mismatch
