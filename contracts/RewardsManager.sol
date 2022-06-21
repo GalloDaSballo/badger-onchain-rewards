@@ -126,10 +126,11 @@ contract RewardsManager is ReentrancyGuard {
             lastAccruedTimestamp[epochId][vault] = block.timestamp;
             return;
         }
-
-        totalPoints[epochId][vault] += timeLeftToAccrue * supply;
-        lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
-        // Setting to the actual time when `accrueVault` was called may help with debugging though
+        unchecked {
+            totalPoints[epochId][vault] += timeLeftToAccrue * supply;
+            lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
+            // Setting to the actual time when `accrueVault` was called may help with debugging though
+        }
     }
 
     /// @dev Given an epoch and a vault, return the time left to accrue
@@ -147,12 +148,16 @@ contract RewardsManager is ReentrancyGuard {
         }
         // return _min(end, now) - start;
         if(lastAccrueTime == 0) {
-            return maxTime - epochData.startTimestamp;
+            unchecked {
+                return maxTime - epochData.startTimestamp;
+            }
         }
 
         // If timestamp is 0, we never accrued
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return _min(maxTime - lastAccrueTime, SECONDS_PER_EPOCH);
+        unchecked {
+            return _min(maxTime - lastAccrueTime, SECONDS_PER_EPOCH);
+        }
     }
 
     /// @return uint256 totalSupply at epochId
@@ -167,7 +172,7 @@ contract RewardsManager is ReentrancyGuard {
         uint256 lastAccrueEpoch = 0; // Not found
 
         // In this case we gotta loop until we find the last known totalSupply which was accrued
-        for(uint256 i = epochId; i > 0; i--){
+        for(uint256 i = epochId; i > 0; --i){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
@@ -435,8 +440,10 @@ contract RewardsManager is ReentrancyGuard {
         uint256 startBalance = IERC20(token).balanceOf(address(this));  
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         uint256 endBalance = IERC20(token).balanceOf(address(this));
-
-        rewards[epochId][vault][token] += endBalance - startBalance;
+        
+        unchecked {
+            rewards[epochId][vault][token] += endBalance - startBalance;
+        }
     }
 
     /// **== Notify System ==** ///
@@ -562,12 +569,16 @@ contract RewardsManager is ReentrancyGuard {
         // If timestamp is 0, we never accrued
         // return _min(end, now) - start;
         if(lastBalanceChangeTime == 0) {
-            return maxTime - epochData.startTimestamp;
+            unchecked {
+                return maxTime - epochData.startTimestamp;
+            }
         }
 
 
         // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        return _min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+        unchecked {
+            return _min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+        }
 
         // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
 
@@ -597,7 +608,7 @@ contract RewardsManager is ReentrancyGuard {
         // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
         // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
         // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
-        for(uint256 i = epochId; i > 0; i--){
+        for(uint256 i = epochId; i > 0; --i){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
@@ -623,13 +634,17 @@ contract RewardsManager is ReentrancyGuard {
     /// === EPOCH HANDLING ==== ///
 
     function currentEpoch() public view returns (uint256) {
-        return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
+        unchecked {
+            return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
+        }
     }
 
     function getEpochData(uint256 epochNumber) public view returns (Epoch memory) {
-        uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochNumber - 1);
-        uint256 end = start + SECONDS_PER_EPOCH;
-        return Epoch(start, end);
+        unchecked {
+            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochNumber - 1);
+            uint256 end = start + SECONDS_PER_EPOCH;
+            return Epoch(start, end);
+        }
     }
 
     /// @dev To maintain same interface
