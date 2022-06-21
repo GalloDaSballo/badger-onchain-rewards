@@ -188,9 +188,6 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  ## initialized_contract.startNextEpoch()
-
   ## Claim token here
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
 
@@ -228,24 +225,13 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  ## initialized_contract.startNextEpoch()
-
   ## Wait the epoch to end 2
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-  ## Go next epoch else you can't claim
-  ## initialized_contract.startNextEpoch()
-
   
   ## Wait the epoch to end 3
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-
-  ## Go next epoch else you can't claim
-  ## initialized_contract.startNextEpoch()
 
   ## Second user withdraws at beginning of epoch 4
   initialized_contract.notifyTransfer(second_user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
