@@ -473,10 +473,10 @@ contract RewardsManager is ReentrancyGuard {
         accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
         // Add deposit data for user
-        shares[cachedCurrentEpoch][vault][to] += amount;
+        shares[cachedCurrentEpoch][vault][to] = shares[cachedCurrentEpoch][vault][to] + amount;
 
         // And total shares for epoch
-        totalSupply[cachedCurrentEpoch][vault] += amount;
+        totalSupply[cachedCurrentEpoch][vault] = totalSupply[cachedCurrentEpoch][vault] + amount;
     }
 
     /// @dev handles a withdraw for vault, from address of amount
@@ -487,9 +487,9 @@ contract RewardsManager is ReentrancyGuard {
 
         // Delete last shares
         // Delete deposit data or user
-        shares[cachedCurrentEpoch][vault][from] -= amount;
+        shares[cachedCurrentEpoch][vault][from] = shares[cachedCurrentEpoch][vault][from] - amount;
         // Reduce totalSupply
-        totalSupply[cachedCurrentEpoch][vault] -= amount;
+        totalSupply[cachedCurrentEpoch][vault] = totalSupply[cachedCurrentEpoch][vault] - amount;
 
     }
 
@@ -502,10 +502,10 @@ contract RewardsManager is ReentrancyGuard {
         accrueUser(cachedCurrentEpoch, vault, to);
 
          // Add deposit data for to
-        shares[cachedCurrentEpoch][vault][to] += amount;
+        shares[cachedCurrentEpoch][vault][to] = shares[cachedCurrentEpoch][vault][to] + amount;
 
          // Delete deposit data for from
-        shares[cachedCurrentEpoch][vault][from] -= amount;
+        shares[cachedCurrentEpoch][vault][from] = shares[cachedCurrentEpoch][vault][from] - amount;
 
         // No change in total supply as this is a transfer
     }
