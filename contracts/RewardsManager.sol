@@ -285,7 +285,7 @@ contract RewardsManager is ReentrancyGuard {
         require(epochEnd < currentEpoch()); // dev: Can't claim if not expired
         _requireNoDuplicates(tokens);
 
-        uint256[] memory amounts = new uint256[](tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
         for(uint epochId = epochStart; epochId <= epochEnd; ++epochId) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
@@ -428,12 +428,17 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external {
-        require(vaults.length == epochIds.length); // dev: length mismatch
-        require(vaults.length == amounts.length); // dev: length mismatch
-        require(vaults.length == tokens.length); // dev: length mismatch
+        uint256 vaultsLength = vaults.length;
+        require(vaultsLength == epochIds.length); // dev: length mismatch
+        require(vaultsLength == amounts.length); // dev: length mismatch
+        require(vaultsLength == tokens.length); // dev: length mismatch
 
-        for(uint256 i = 0; i < vaults.length; ++i){
-            addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);   
+        for(uint256 i = 0; i < vaultsLength; ){
+            addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -463,14 +468,14 @@ contract RewardsManager is ReentrancyGuard {
     function notifyTransfer(address from, address to, uint256 amount) external {
         require(from != to); // dev: can't transfer to yourself
         // NOTE: Anybody can call this because it's indexed by msg.sender
-        address vault = msg.sender; // Only the vault can change these
+        // Vault is msg.sender, and msg.sender cost 1 less gas
 
         if (from == address(0)) {
-            _handleDeposit(vault, to, amount);
+            _handleDeposit(msg.sender, to, amount);
         } else if (to == address(0)) {
-            _handleWithdrawal(vault, from, amount);
+            _handleWithdrawal(msg.sender, from, amount);
         } else {
-            _handleTransfer(vault, from, to, amount);
+            _handleTransfer(msg.sender, from, to, amount);
         }
     }
 
