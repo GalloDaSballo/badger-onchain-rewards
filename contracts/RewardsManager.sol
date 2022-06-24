@@ -931,15 +931,22 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+    struct VaultInfo {
+        uint256 vaultTotalSupply;
+        uint256 timeLeftToAccrue;
+        uint256 vaultEpochTotalPoints;
+        uint256 pointsInStorage;
+    }
+
 
     // TODO: Same as above but for Vault
-    function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) public view returns (uint256 vaultTotalSupply, uint256 timeLeftToAccrue, uint256 vaultEpochTotalPoints, uint256 pointsInStorage) {
+    function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) public view returns (VaultInfo memory info) {
         require(epochId < currentEpoch()); // dev: epoch must be over // TODO: if we change to internal we may remove to save gas
 
         // NOTE: Can probably refactor to send read value and then rest of logic is same for Vault and User
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         if(lastAccrueTime == 0) {
-            timeLeftToAccrue = SECONDS_PER_EPOCH;
+            info.timeLeftToAccrue = SECONDS_PER_EPOCH;
         } else {
             // An accrual for the epoch has happened
             Epoch memory epochData = getEpochData(epochId);
@@ -948,30 +955,27 @@ contract RewardsManager is ReentrancyGuard {
             if(lastAccrueTime >= epochData.endTimestamp) {
                 // timeLeftToAccrue = 0;
             } else {
-                timeLeftToAccrue = _min(epochData.endTimestamp - lastAccrueTime, SECONDS_PER_EPOCH);
+                info.timeLeftToAccrue = _min(epochData.endTimestamp - lastAccrueTime, SECONDS_PER_EPOCH);
             }
         }
 
         if(lastAccrueTime == 0) {
-            vaultTotalSupply = prevEpochTotalSupply;
+            info.vaultTotalSupply = prevEpochTotalSupply;
         } else {
-            vaultTotalSupply = totalSupply[epochId][vault];
+            info.vaultTotalSupply = totalSupply[epochId][vault];
         }
 
 
         if(lastAccrueTime == 0) {
             // Just multiply from scratch
-            vaultEpochTotalPoints = vaultTotalSupply * timeLeftToAccrue;
+            info.vaultEpochTotalPoints = info.vaultTotalSupply * info.timeLeftToAccrue;
             // pointsInStorage = 0;
         } else {
             // We have accrued, return the sum of points from storage and the points that are not accrued
-            pointsInStorage = totalPoints[epochId][vault];
-            vaultEpochTotalPoints = pointsInStorage + vaultTotalSupply * timeLeftToAccrue;
+            info.pointsInStorage = totalPoints[epochId][vault];
+            info.vaultEpochTotalPoints = info.pointsInStorage + info.vaultTotalSupply * info.timeLeftToAccrue;
         }
     }
-
-    // TODO: Given the 2 above, claim rewards looping upwards from known value and then using these, to skip accruals
-
 
     /// @dev My attempt at making this contract actually usable on mainnet
     // TODO: Make version that considers vault that emit themselves (track vault balance as well)
@@ -997,23 +1001,29 @@ contract RewardsManager is ReentrancyGuard {
 
             // For all epochs from start to end, get user info
             UserInfo memory userInfo = getUserNextEpochInfo(epochId, vault, user, startingUserBalance);
-            (uint256 vaultTotalSupply, , uint256 vaultEpochTotalPoints, ) = getVaultNextEpochInfo(epochId, vault, startingVaultBalance);
+            VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, startingVaultBalance);
 
             // NOTE: Issue with points being non-zero as they could be `claimReward`ed if I don't delete them
             // But that forces me to read them or at best store 0 on 0
             // Probably need to create an optimized-optimized function that if points are non-zero also deletes them
             // userPointsInStorage -> if non-zero -> Delete points
 
+            // If userPoints are zero, go next fast
+            if (userInfo.userEpochTotalPoints == 0) {
+                startingUserBalance = userInfo.balance;
+                startingVaultBalance = vaultInfo.vaultTotalSupply;
+
+                unchecked { ++epochId; }
+                continue;
+            }
+
             // Use the info to get userPoints and vaultePoints
             if (userInfo.pointsInStorage > 0) {
                 delete points[epochId][vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
             }
 
+        
             // Use points to calculate amount of rewards
-
-            // TODO: If userPoints are zero, go next fast
-
-            // Calculate the amounts here
             for(uint256 i; i < tokens.length; ){
                 address token = tokens[i];
 
@@ -1024,27 +1034,16 @@ contract RewardsManager is ReentrancyGuard {
                 uint256 totalAdditionalReward = rewards[epochId][vault][token];
 
                 // NOTE: This is for vaults that don't emit themselves
-                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultEpochTotalPoints;
+                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
                 unchecked { ++i; }
             }
 
 
             // End of iteration
             startingUserBalance = userInfo.balance;
-            startingVaultBalance = vaultTotalSupply;
+            startingVaultBalance = vaultInfo.vaultTotalSupply;
 
             unchecked { ++epochId; }
-
-
-            // Do storage changes necessary (update last shares for end epoch)
-
-            // Set those as they wouldn't be deleted, and we need to brick further claims
-            // Set lastUserAccrueTimestamp[epochEnd][vault][user]
-            // Set shares[epochEnd][vault][user]
-
-            // Also
-            // delete shares[epochStart][vault][user]; // Set shares to zero
-            // lastUserAccrueTimestamp[epochStart][vault][user] = block.timestamp // Set this to now so shares are 0 forever
         }
 
         // == Set up Storage == //
@@ -1053,17 +1052,15 @@ contract RewardsManager is ReentrancyGuard {
             shares[epochEnd][vault][user] = startingUserBalance; 
 
             // Delete the points for that epoch so nothing more to claim
-            delete points[epochEnd][vault][user];
+            delete points[epochEnd][vault][user]; // This may be zero and may have already been deleted
 
             // Because we set the accrue timestamp to end of the epoch
-            lastUserAccrueTimestamp[epochEnd][vault][user] = block.timestamp;
+            lastUserAccrueTimestamp[epochEnd][vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
             
             // And we delete the initial balance meaning they have no balance left
             delete shares[epochStart][vault][user];
             lastUserAccrueTimestamp[epochStart][vault][user] = block.timestamp; // NOTE: Not sure if we need this but prob yeah
         }
-
-        
 
         // Go ahead and transfer
         {
