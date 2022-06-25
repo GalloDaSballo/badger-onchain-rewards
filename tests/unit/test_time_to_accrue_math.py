@@ -118,8 +118,6 @@ def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
   ## Time left to accrue should be from last accrue to end of epoch
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == epoch_end - time_of_deposit ## Accrue happens at deposit
 
-  ## initialized_contract.startNextEpoch()
-
   ## Didn't change despite more time having passed
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == epoch_end - time_of_deposit ## Accrue happens at deposit
 

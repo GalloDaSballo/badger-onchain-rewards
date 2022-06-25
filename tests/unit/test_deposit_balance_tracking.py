@@ -36,8 +36,6 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
 
-    ## Because prev epoch was zero, we can't get the prev balance
-    ## tx = initialized_contract.startNextEpoch({"from": user})
     new_epoch = 2
 
     assert initialized_contract.currentEpoch() == new_epoch
@@ -50,7 +48,6 @@ def test_epoch_changes_balances_are_preserved(initialized_contract, user, fake_v
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
 
-    ## initialized_contract.startNextEpoch({"from": user})
     new_epoch = 3
 
     assert initialized_contract.currentEpoch() == new_epoch
@@ -74,7 +71,6 @@ def test_epoch_changes_balances_are_preserved_after_tons_of_epochs(initialized_c
     for x in range(1, 6):
       chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
       chain.mine()
-      ## initialized_contract.startNextEpoch({"from": user})
 
     ## See if we get the balance
     ## Old Epoch Balance is still there (no storage changes)
@@ -102,7 +98,6 @@ def test_epoch_changes_balances_are_preserved_and_change_properly_after_tons_of_
     for x in range(1, 6):
       chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
       chain.mine()
-      ## initialized_contract.startNextEpoch({"from": user})
 
 
     SECOND_DEPOSIT = 3e18
