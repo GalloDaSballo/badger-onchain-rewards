@@ -985,8 +985,8 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev My attempt at making this contract actually usable on mainnet
-    // TODO: Make version that considers vault that emit themselves (track vault balance as well)
-    // TODO: Refactor to make code humanly usable
+    // TODO: Make version for vaults that do not emit themselves (way cheaper)
+    // TODO: Write unit tests for this one
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
@@ -998,7 +998,6 @@ contract RewardsManager is ReentrancyGuard {
         // We must update the storage that we don't delete to ensure that user can only claim once
         // This is equivalent to deleting the user storage
 
-        // TODO: Proove that after fetching a value with `getBalanceAtEpoch` it is safe and correct to use `getUserNextEpochInfo`
         (uint256 startingUserBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
         (uint256 startingVaultBalance, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
         (uint256 startingContractBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, address(this));
@@ -1043,7 +1042,6 @@ contract RewardsManager is ReentrancyGuard {
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
 
-                // NOTE: This is for vaults that don't emit themselves
                 amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
                 unchecked { ++i; }
             }
@@ -1070,7 +1068,7 @@ contract RewardsManager is ReentrancyGuard {
             
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
-            lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp; // NOTE: Not sure if we need this but prob yeah
+            lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
         }
 
         // Go ahead and transfer
