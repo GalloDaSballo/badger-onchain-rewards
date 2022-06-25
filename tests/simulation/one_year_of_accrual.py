@@ -233,7 +233,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_as_many_savings_as_i_could(
   initialized_contract.accrueUser(52, fake_vault, initialized_contract)
 
   ## Claim rewards here
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(1, 52, fake_vault, [token], {"from": user})
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, 52, fake_vault, [token]], {"from": user})
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance ## First reward is still inside for another epoch
