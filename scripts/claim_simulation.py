@@ -11,7 +11,7 @@ from brownie import *
 MaxUint256 = str(int(2 ** 256 - 1))
 AddressZero = "0x0000000000000000000000000000000000000000"
 
-TOKENS = 1
+TOKENS = 5
 EPOCHS = 50 ## 1 Year with 1 epoch per week
 INITIAL_MINT = 52_000_000
 INITIAL_DEPOSIT = 100
