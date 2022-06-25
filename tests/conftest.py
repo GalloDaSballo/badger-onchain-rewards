@@ -74,6 +74,7 @@ def setup_contract(deployer):
 
     ## TODO: Add a deposit
     ## TODO: Add rewards
+    ## TODO: Ask for someone to refactor all the INITIAL_DEPOSITS here
 
     return contract
 
