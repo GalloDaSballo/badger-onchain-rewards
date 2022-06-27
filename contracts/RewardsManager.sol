@@ -230,9 +230,11 @@ contract RewardsManager is ReentrancyGuard {
     }
     
     /// @dev Claim one Token Reward for a specific epoch, vault and user
+    /// @notice Reference version of the function, fully onChain, fully in storage
+    ///     This function is as expensive as it gets
     /// @notice Anyone can claim on behalf of others
     /// @notice Gas savings is fine as public / external matters only when using mem vs calldata for arrays
-    function claimReward(uint256 epochId, address vault, address token, address user) public {
+    function claimRewardReference(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
         accrueUser(epochId, vault, user);
@@ -263,6 +265,68 @@ contract RewardsManager is ReentrancyGuard {
         
         pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
 
+
+        IERC20(token).safeTransfer(user, tokensForUser);
+    }
+
+    function claimReward(uint256 epochId, address vault, address token, address user) public {
+        require(epochId < currentEpoch()); // dev: !can only claim ended epochs
+
+        (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(epochId, vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(epochId, vault);
+        (uint256 startingContractBalance, ) = getBalanceAtEpoch(epochId, vault, address(this));
+
+        // For all epochs from start to end, get user info
+        UserInfo memory userInfo = getUserNextEpochInfo(epochId, vault, user, userBalanceAtEpochId);
+        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
+        UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, vault, address(this), startingContractBalance);
+
+        // If userPoints are zero, go next fast
+        if (userInfo.userEpochTotalPoints == 0) {
+            return; // Nothing to claim
+        }
+
+        // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+        require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
+
+        // We got some stuff left // Use ratio to calculate what we got left
+        uint256 totalAdditionalReward = rewards[epochId][vault][token];
+
+        // Calculate tokens for user
+        uint256 tokensForUser = totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
+        
+        // We checked it was zero, no need to add
+        pointsWithdrawn[epochId][vault][user][token] = userInfo.userEpochTotalPoints;
+
+        IERC20(token).safeTransfer(user, tokensForUser);
+    }
+
+    function claimRewardNonEmitting(uint256 epochId, address vault, address token, address user) public {
+        require(epochId < currentEpoch()); // dev: !can only claim ended epochs
+
+        (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(epochId, vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(epochId, vault);
+
+        // For all epochs from start to end, get user info
+        UserInfo memory userInfo = getUserNextEpochInfo(epochId, vault, user, userBalanceAtEpochId);
+        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
+
+        // If userPoints are zero, go next fast
+        if (userInfo.userEpochTotalPoints == 0) {
+            return; // Nothing to claim
+        }
+
+        // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+        require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
+
+        // We got some stuff left // Use ratio to calculate what we got left
+        uint256 totalAdditionalReward = rewards[epochId][vault][token];
+
+        // Calculate tokens for user
+        uint256 tokensForUser = totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
+        
+        // We checked it was zero, no need to add
+        pointsWithdrawn[epochId][vault][user][token] = userInfo.userEpochTotalPoints;
 
         IERC20(token).safeTransfer(user, tokensForUser);
     }
