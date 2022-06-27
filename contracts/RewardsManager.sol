@@ -212,7 +212,10 @@ contract RewardsManager is ReentrancyGuard {
         uint256 epochLength = epochsToClaim.length;
         uint256 vaultLength = vaults.length;
         uint256 tokensLength = tokens.length;
-        require(epochLength == vaultLength && epochLength == tokensLength && epochLength == usersLength, "Length mismatch");
+
+        require(usersLength == epochLength); // dev: length mismatch
+        require(epochLength == vaultLength); // dev: length mismatch
+        require(vaultLength == tokensLength); // dev: length mismatch
 
         // Given an epoch and a vault
         // I have to accrue until end
@@ -564,14 +567,14 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
     /// TODO: Fix extra non-reentrant
-    function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external {
+    function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external nonReentrant{
         uint256 vaultsLength = vaults.length;
         require(vaultsLength == epochIds.length); // dev: length mismatch
         require(vaultsLength == amounts.length); // dev: length mismatch
         require(vaultsLength == tokens.length); // dev: length mismatch
 
         for(uint256 i; i < vaultsLength; ){
-            addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);
+            _addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);
 
             unchecked {
                 ++i;
@@ -579,11 +582,17 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+    /// @dev see `_addReward`
+    function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
+        _addReward(epochId, vault, token, amount);
+    }
+
+
     /// @notice Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     /// @notice nonReentrant because tokens could inflate rewards, this would only apply to the specific token, see reports for more
-    function addReward(uint256 epochId, address vault, address token, uint256 amount) public nonReentrant {
+    function _addReward(uint256 epochId, address vault, address token, uint256 amount) internal {
         require(epochId >= currentEpoch());
 
         // Check change in balance to support `feeOnTransfer` tokens as well
