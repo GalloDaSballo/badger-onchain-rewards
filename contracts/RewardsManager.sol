@@ -998,8 +998,8 @@ contract RewardsManager is ReentrancyGuard {
         // We must update the storage that we don't delete to ensure that user can only claim once
         // This is equivalent to deleting the user storage
 
-        (uint256 startingUserBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
-        (uint256 startingVaultBalance, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
+        (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
         (uint256 startingContractBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, address(this));
 
         uint256[] memory amounts = new uint256[](params.tokens.length); // We'll map out amounts to tokens for the bulk transfers
@@ -1007,26 +1007,22 @@ contract RewardsManager is ReentrancyGuard {
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
             // For all epochs from start to end, get user info
-            UserInfo memory userInfo = getUserNextEpochInfo(epochId, params.vault, user, startingUserBalance);
-            VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, params.vault, startingVaultBalance);
+            UserInfo memory userInfo = getUserNextEpochInfo(epochId, params.vault, user, userBalanceAtEpochId);
+            VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, params.vault, vaultSupplyAtEpochId);
             UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, params.vault, address(this), startingContractBalance);
-
-            // NOTE: Issue with points being non-zero as they could be `claimReward`ed if I don't delete them
-            // But that forces me to read them or at best store 0 on 0
-            // Probably need to create an optimized-optimized function that if points are non-zero also deletes them
-            // userPointsInStorage -> if non-zero -> Delete points
 
             // If userPoints are zero, go next fast
             if (userInfo.userEpochTotalPoints == 0) {
-                startingUserBalance = userInfo.balance;
-                startingVaultBalance = vaultInfo.vaultTotalSupply;
+                // NOTE: By definition user points being zero means storage points are also zero
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
                 startingContractBalance = thisContractInfo.balance;
 
                 unchecked { ++epochId; }
                 continue;
             }
 
-            // Use the info to get userPoints and vaultePoints
+            // Use the info to get userPoints and vaultPoints
             if (userInfo.pointsInStorage > 0) {
                 delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
             }
@@ -1048,8 +1044,8 @@ contract RewardsManager is ReentrancyGuard {
 
 
             // End of iteration
-            startingUserBalance = userInfo.balance;
-            startingVaultBalance = vaultInfo.vaultTotalSupply;
+            userBalanceAtEpochId = userInfo.balance;
+            vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
             startingContractBalance = thisContractInfo.balance;
 
             unchecked { ++epochId; }
@@ -1058,7 +1054,7 @@ contract RewardsManager is ReentrancyGuard {
         // == Set up Storage == //
         {
             // Port over shares from last check
-            shares[params.epochEnd][params.vault][user] = startingUserBalance; 
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
 
             // Delete the points for that epoch so nothing more to claim
             delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
@@ -1070,6 +1066,90 @@ contract RewardsManager is ReentrancyGuard {
             delete shares[params.epochStart][params.vault][user];
             lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
         }
+
+        // Go ahead and transfer
+        {
+            for(uint256 i; i < params.tokens.length; ){
+                IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+                unchecked { ++i; }
+            }
+        }
+    }
+
+    /// @dev See above but for non-emitting strategy
+    function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(OptimizedClaimParams calldata params) external {
+        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
+        address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
+        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        _requireNoDuplicates(params.tokens);
+
+        // Instead of accruing user and vault, we just compute the values in the loop
+        // We can use those value for reward distribution
+        // We must update the storage that we don't delete to ensure that user can only claim once
+        // This is equivalent to deleting the user storage
+
+        (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
+
+        uint256[] memory amounts = new uint256[](params.tokens.length); // We'll map out amounts to tokens for the bulk transfers
+    
+        for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
+
+            // For all epochs from start to end, get user info
+            UserInfo memory userInfo = getUserNextEpochInfo(epochId, params.vault, user, userBalanceAtEpochId);
+            VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, params.vault, vaultSupplyAtEpochId);
+
+            // If userPoints are zero, go next fast
+            if (userInfo.userEpochTotalPoints == 0) {
+                // NOTE: By definition user points being zero means storage points are also zero
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+
+                unchecked { ++epochId; }
+                continue;
+            }
+
+            // Use the info to get userPoints and vaultPoints
+            if (userInfo.pointsInStorage > 0) {
+                delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
+            }
+
+        
+            // Use points to calculate amount of rewards
+            for(uint256 i; i < params.tokens.length; ){
+                address token = params.tokens[i];
+
+                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+
+                // Use ratio to calculate tokens to send
+                uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
+
+                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
+                unchecked { ++i; }
+            }
+
+
+            // End of iteration
+            userBalanceAtEpochId = userInfo.balance;
+            vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+
+            unchecked { ++epochId; }
+        }
+
+        // == Storage Changes == //
+        // Port over shares from last check
+        shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
+
+        // Delete the points for that epoch so nothing more to claim
+        delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
+
+        // Because we set the accrue timestamp to end of the epoch
+        lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
+        
+        // And we delete the initial balance meaning they have no balance left
+        delete shares[params.epochStart][params.vault][user];
+        lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
 
         // Go ahead and transfer
         {
