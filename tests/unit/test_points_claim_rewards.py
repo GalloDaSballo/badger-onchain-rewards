@@ -45,7 +45,7 @@ def test_basic_claim_twice_points_check(initialized_contract, user, fake_vault, 
   ## Go next epoch else you can't claim
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, fake_vault, token, user)
+  initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user)
 
   ## Claim rewards accrues, which calculates points ## See `test_accrue_points for proofs`
   points_balance_after_accrue = initialized_contract.points(EPOCH, fake_vault, user)
@@ -111,20 +111,20 @@ def test_you_cant_claim_if_epoch_isnt_over(initialized_contract, user, fake_vaul
   initialized_contract.addReward(EPOCH, fake_vault, token, REWARD_AMOUNT, {"from": user})
 
   with brownie.reverts("dev: !can only claim ended epochs"):
-    initialized_contract.claimReward(EPOCH, fake_vault, token, user)
+    initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user)
 
 
 def test_revert_cases_for_claimRewards(initialized_contract, user, fake_vault, token):
   EPOCH = initialized_contract.currentEpoch()
   ## 2 Epochs, 1 rest
   with brownie.reverts("Length mismatch"):
-    initialized_contract.claimRewards([EPOCH, EPOCH], [fake_vault], [token], [user])
+    initialized_contract.claimRewardReference([EPOCH, EPOCH], [fake_vault], [token], [user])
   ## 2 Vaults, 1 rest
   with brownie.reverts("Length mismatch"):
-    initialized_contract.claimRewards([EPOCH], [fake_vault, fake_vault], [token], [user])
+    initialized_contract.claimRewardReference([EPOCH], [fake_vault, fake_vault], [token], [user])
   ## 2 Users, 1 rest
   with brownie.reverts("Length mismatch"):
-    initialized_contract.claimRewards([EPOCH], [fake_vault], [token], [user, user])
+    initialized_contract.claimRewardReference([EPOCH], [fake_vault], [token], [user, user])
   ## 2 tokens, 1 rest
   with brownie.reverts("Length mismatch"):
-    initialized_contract.claimRewards([EPOCH], [fake_vault], [token, token], [user])
+    initialized_contract.claimRewardReference([EPOCH], [fake_vault], [token, token], [user])
