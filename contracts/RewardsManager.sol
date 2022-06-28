@@ -272,6 +272,7 @@ contract RewardsManager is ReentrancyGuard {
         IERC20(token).safeTransfer(user, tokensForUser);
     }
 
+    /// @dev Claim Rewards, without accruing points, saves gas for one-off claims
     function claimReward(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
@@ -304,6 +305,7 @@ contract RewardsManager is ReentrancyGuard {
         IERC20(token).safeTransfer(user, tokensForUser);
     }
 
+    /// @dev Claim Rewards, without accruing points, for non-emitting vaults, saves gas for one-off claims
     function claimRewardNonEmitting(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
