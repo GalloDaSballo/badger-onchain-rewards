@@ -169,10 +169,18 @@ contract RewardsManager is ReentrancyGuard {
             return (totalSupply[epochId][vault], false); // Already updated
         }
 
+        // Shortcut
+        if(epochId == 1) {
+            // If epoch is first one, and we don't have a totalSupply, then totalSupply is zero
+            return (0, false);
+
+            // This allows to do epochId - 1 below
+        }
+
         uint256 lastAccrueEpoch = 0; // Not found
 
         // In this case we gotta loop until we find the last known totalSupply which was accrued
-        for(uint256 i = epochId; i > 0; ){
+        for(uint256 i = epochId - 1; i > 0; ){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
@@ -760,12 +768,20 @@ contract RewardsManager is ReentrancyGuard {
             return (shares[epochId][vault][user], false);
         }
 
+        // Shortcut
+        if(epochId == 1) {
+            // If epoch is first one, and we don't have a balance, then balance is zero
+            return (0, false);
+
+            // This allows to do epochId - 1 below
+        }
+
         uint256 lastBalanceChangeEpoch = 0; // We haven't found it
 
         // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
         // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
         // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
-        for(uint256 i = epochId; i > 0; ){
+        for(uint256 i = epochId - 1; i > 0; ){
             // NOTE: We have to loop because while we know the length of an epoch 
             // we don't have a guarantee of when it starts
 
