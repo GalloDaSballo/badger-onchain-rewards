@@ -756,16 +756,11 @@ contract RewardsManager is ReentrancyGuard {
     /// comparing the storage value after the return value is a waste of a SLOAD
     function getBalanceAtEpoch(uint256 epochId, address vault, address user) public view returns (uint256, bool) {
         // Time Last Known Balance has changed
-        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
-        uint256 lastBalanceChangeEpoch = 0; // We haven't found it
-
-        // Optimistic Case, lastUserAccrueTimestamp for this epoch is nonZero, 
-        // Because non-zero means we already found the balance, due to invariant, the balance is correct for this epoch
-        // return this epoch balance
-        if(lastBalanceChangeTime > 0) {
+        if(lastUserAccrueTimestamp[epochId][vault][user] != 0 ) {
             return (shares[epochId][vault][user], false);
         }
-        
+
+        uint256 lastBalanceChangeEpoch = 0; // We haven't found it
 
         // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
         // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
