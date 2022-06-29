@@ -1070,8 +1070,6 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev My attempt at making this contract actually usable on mainnet
-    // TODO: Make version for vaults that do not emit themselves (way cheaper)
-    // TODO: Write unit tests for this one
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
