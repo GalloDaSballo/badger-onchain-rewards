@@ -568,7 +568,6 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
-    /// TODO: Fix extra non-reentrant
     function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external nonReentrant{
         uint256 vaultsLength = vaults.length;
         require(vaultsLength == epochIds.length); // dev: length mismatch
