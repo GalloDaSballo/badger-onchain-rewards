@@ -34,6 +34,29 @@ def test_full_deposit_one_user(initialized_contract, user, real_vault, token):
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
 
+def test_full_deposit_one_user_transfer_to_second(initialized_contract, user, real_vault, token, second_user, deposit_amount):
+  REWARD_AMOUNT = 1e20
+  EPOCH = initialized_contract.currentEpoch()
+
+  real_vault.transfer(second_user, real_vault.balanceOf(user), {"from": user})
+
+  ## Add rewards here
+  token.approve(initialized_contract, MaxUint256, {"from": user})
+  initialized_contract.addReward(EPOCH, real_vault, token, REWARD_AMOUNT, {"from": user})
+
+  ## Because user has the tokens too, we check the balance here
+  initial_reward_balance = token.balanceOf(user)
+
+  ## Wait the epoch to end
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## Claim rewards here
+  initialized_contract.claimReward(EPOCH, real_vault, token, user)
+  initialized_contract.claimReward(EPOCH, real_vault, token, second_user)
+
+  ## Sum of both got the entire amount
+  assert approx(token.balanceOf(user) + token.balanceOf(second_user), initial_reward_balance + REWARD_AMOUNT, 1)
 
 
 """

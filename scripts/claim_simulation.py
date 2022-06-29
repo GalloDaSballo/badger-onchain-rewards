@@ -11,8 +11,8 @@ from brownie import *
 MaxUint256 = str(int(2 ** 256 - 1))
 AddressZero = "0x0000000000000000000000000000000000000000"
 
-TOKENS = 1
-EPOCHS = 10 ## 1 Year with 1 epoch per week
+TOKENS = 5
+EPOCHS = 50 ## 1 Year with 1 epoch per week
 INITIAL_MINT = 52_000_000
 INITIAL_DEPOSIT = 100
 def test_full_deposit_claim_one_year_of_rewards_with_optimization():
@@ -54,7 +54,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_optimization():
   print(initialized_contract.currentEpoch())
 
   ## Claim Bulk
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(1, EPOCHS, fake_vault, tokens, {"from": user})
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, EPOCHS, fake_vault, tokens], {"from": user})
 
   print("Gas Cost to add")
   print(EPOCHS)
