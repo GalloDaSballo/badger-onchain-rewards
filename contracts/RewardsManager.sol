@@ -293,13 +293,15 @@ contract RewardsManager is ReentrancyGuard {
 
         // For all epochs from start to end, get user info
         UserInfo memory userInfo = getUserNextEpochInfo(epochId, vault, user, userBalanceAtEpochId);
-        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
-        UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, vault, address(this), startingContractBalance);
 
         // If userPoints are zero, go next fast
         if (userInfo.userEpochTotalPoints == 0) {
             return; // Nothing to claim
         }
+
+        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
+        UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, vault, address(this), startingContractBalance);
+
 
         // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
         require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
@@ -325,12 +327,13 @@ contract RewardsManager is ReentrancyGuard {
 
         // For all epochs from start to end, get user info
         UserInfo memory userInfo = getUserNextEpochInfo(epochId, vault, user, userBalanceAtEpochId);
-        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
 
         // If userPoints are zero, go next fast
         if (userInfo.userEpochTotalPoints == 0) {
             return; // Nothing to claim
         }
+
+        VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
 
         // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
         require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
@@ -366,7 +369,7 @@ contract RewardsManager is ReentrancyGuard {
         _requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
-        for(uint epochId = epochStart; epochId <= epochEnd; ++epochId) {
+        for(uint epochId = epochStart; epochId <= epochEnd; ) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
             accrueUser(epochId, vault, address(this)); // Accrue this contract points
@@ -377,19 +380,22 @@ contract RewardsManager is ReentrancyGuard {
 
             // Now that they are accrue, just use the points to estimate reward and send
             uint256 userPoints = points[epochId][vault][user];
+            
+            // No need for more SLOADs if points are zero
+            if(userPoints == 0){
+                unchecked { ++epochId; }
+                continue;
+            }
 
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
             uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
 
 
-            if(userPoints == 0){
-                continue;
-            }
 
             // We multiply just to avoid rounding
 
             // Loop over the tokens and see the points here
-            for(uint256 i; i < tokensLength; ++i){
+            for(uint256 i; i < tokensLength; ){
                 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
@@ -400,12 +406,18 @@ contract RewardsManager is ReentrancyGuard {
                 // Which means they claimed all points for that token
                 pointsWithdrawn[epochId][vault][user][tokens[i]] = userPoints; // Can assign because we checked it's 0 above
                 amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
+
+                unchecked { ++i; }
             }
+
+            unchecked { ++epochId; }
         }
 
         // Go ahead and transfer
-        for(uint256 i; i < tokensLength; ++i){
+        for(uint256 i; i < tokensLength; ){
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
+
+            unchecked { ++i; }
         }
     }
     
