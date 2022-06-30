@@ -31,7 +31,7 @@ def test_rug(initialized_contract, user, fake_vault, token, badger_registry):
 
   ## Only Badger_Registry can rug
   with brownie.reverts():
-    initialized_contract.rug(token, {"from": badger_registry})
+    initialized_contract.rug(token, {"from": user})
   
 """
   Test rug renouncement
