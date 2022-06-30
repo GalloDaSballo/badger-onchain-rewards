@@ -59,7 +59,7 @@ def test_time_left_to_accrue(initialized_contract, user, fake_vault, token):
   ## Verify time left to accrue before claim
   timeLeftUser = initialized_contract.getUserTimeLeftToAccrueForEndedEpoch(EPOCH, fake_vault.address, user.address)
   timeLeftVault = initialized_contract.getVaultTimeLeftToAccrueForEndedEpoch(EPOCH, fake_vault.address)
-  assert 0 < timeLeftVault and timeLeftVault < secondsPerEpoch and 0 < timeLeftUser and timeLeftUser < secondsPerEpoch
+  assert 0 <= timeLeftVault and timeLeftVault <= secondsPerEpoch and 0 <= timeLeftUser and timeLeftUser <= secondsPerEpoch
   
   ## Claim rewards with fully on-chain implementation means we got all rewards and there is no time to accrue
   initialized_contract.claimRewardReference(EPOCH, fake_vault.address, token.address, user.address, {'from': user})
