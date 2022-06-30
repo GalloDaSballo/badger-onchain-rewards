@@ -127,7 +127,7 @@ contract RewardsManager is ReentrancyGuard {
             return;
         }
         unchecked {
-            totalPoints[epochId][vault] = totalPoints[epochId][vault] + timeLeftToAccrue * supply;
+            totalPoints[epochId][vault] += timeLeftToAccrue * supply;
             lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
             // Setting to the actual time when `accrueVault` was called may help with debugging though
         }
@@ -490,8 +490,11 @@ contract RewardsManager is ReentrancyGuard {
         // to get a non-zero balance and get points again
         // NOTE: Commented out as it actually seems to cost more gas due to refunds being capped
         // FOR AUDITORS: LMK if you can figure this out
-        for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
-            delete lastUserAccrueTimestamp[epochId][vault][user];
+        unchecked {
+            // Sums cannot overflow
+            for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
+                delete lastUserAccrueTimestamp[epochId][vault][user];
+            }
         }
         
         // For last epoch, we don't delete the shares, but we delete the points
@@ -531,7 +534,7 @@ contract RewardsManager is ReentrancyGuard {
         for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
             
             unchecked {
-                rewards[epochId][vault][token] = rewards[epochId][vault][token] + perEpoch;
+                rewards[epochId][vault][token] += perEpoch;
             }
 
             unchecked { 
@@ -554,7 +557,7 @@ contract RewardsManager is ReentrancyGuard {
         uint256 total;
         for(uint256 i; i < totalEpochs; ) {
             unchecked {
-                total = total + amounts[i];
+                total += amounts[i];
                 ++i;
             }
         }
@@ -569,7 +572,7 @@ contract RewardsManager is ReentrancyGuard {
         // Give each epoch an equal amount of reward
         for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
             unchecked {
-                rewards[epochId][vault][token] = rewards[epochId][vault][token] + amounts[epochId - startEpoch];
+                rewards[epochId][vault][token] += amounts[epochId - startEpoch];
             }
 
             unchecked { 
@@ -613,7 +616,7 @@ contract RewardsManager is ReentrancyGuard {
         uint256 endBalance = IERC20(token).balanceOf(address(this));
         
         unchecked {
-            rewards[epochId][vault][token] = rewards[epochId][vault][token] + endBalance - startBalance;
+            rewards[epochId][vault][token] += endBalance - startBalance;
         }
     }
 
@@ -643,11 +646,13 @@ contract RewardsManager is ReentrancyGuard {
         accrueUser(cachedCurrentEpoch, vault, to);
         accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
 
-        // Add deposit data for user
-        shares[cachedCurrentEpoch][vault][to] = shares[cachedCurrentEpoch][vault][to] + amount;
+        unchecked {
+            // Add deposit data for user
+            shares[cachedCurrentEpoch][vault][to] += amount;
 
-        // And total shares for epoch
-        totalSupply[cachedCurrentEpoch][vault] = totalSupply[cachedCurrentEpoch][vault] + amount;
+            // And total shares for epoch
+            totalSupply[cachedCurrentEpoch][vault] += amount;
+        }
     }
 
     /// @dev handles a withdraw for vault, from address of amount
@@ -658,9 +663,9 @@ contract RewardsManager is ReentrancyGuard {
 
         // Delete last shares
         // Delete deposit data or user
-        shares[cachedCurrentEpoch][vault][from] = shares[cachedCurrentEpoch][vault][from] - amount;
+        shares[cachedCurrentEpoch][vault][from] -= amount;
         // Reduce totalSupply
-        totalSupply[cachedCurrentEpoch][vault] = totalSupply[cachedCurrentEpoch][vault] - amount;
+        totalSupply[cachedCurrentEpoch][vault] -= amount;
 
     }
 
@@ -673,10 +678,10 @@ contract RewardsManager is ReentrancyGuard {
         accrueUser(cachedCurrentEpoch, vault, to);
 
          // Add deposit data for to
-        shares[cachedCurrentEpoch][vault][to] = shares[cachedCurrentEpoch][vault][to] + amount;
+        shares[cachedCurrentEpoch][vault][to] += amount;
 
          // Delete deposit data for from
-        shares[cachedCurrentEpoch][vault][from] = shares[cachedCurrentEpoch][vault][from] - amount;
+        shares[cachedCurrentEpoch][vault][from] -= amount;
 
         // No change in total supply as this is a transfer
     }
