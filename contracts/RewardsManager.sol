@@ -885,7 +885,7 @@ contract RewardsManager is ReentrancyGuard {
     /// These functions should be private, but I need to test them right now.
 
 
-    /// === Otimized functions === ////
+    /// === Optimized functions === ////
     /// Invariant -> Epoch has ended
     /// Invariant -> Never changed means full duration & Balance is previously known
     /// 2 options. 
