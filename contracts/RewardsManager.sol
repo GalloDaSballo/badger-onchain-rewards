@@ -617,7 +617,7 @@ contract RewardsManager is ReentrancyGuard {
 
         // Allow underflow in case of malicious token
         uint256 diff = endBalance - startBalance;
-        
+
         unchecked {
             rewards[epochId][vault][token] += diff;
         }
@@ -680,8 +680,10 @@ contract RewardsManager is ReentrancyGuard {
         // Accrue points for to, so they don't get too many rewards
         accrueUser(cachedCurrentEpoch, vault, to);
 
-         // Add deposit data for to
-        shares[cachedCurrentEpoch][vault][to] += amount;
+        unchecked {
+            // Add deposit data for to
+            shares[cachedCurrentEpoch][vault][to] += amount;
+        }
 
          // Delete deposit data for from
         shares[cachedCurrentEpoch][vault][from] -= amount;
