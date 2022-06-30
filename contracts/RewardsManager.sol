@@ -614,9 +614,12 @@ contract RewardsManager is ReentrancyGuard {
         uint256 startBalance = IERC20(token).balanceOf(address(this));  
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         uint256 endBalance = IERC20(token).balanceOf(address(this));
+
+        // Allow underflow in case of malicious token
+        uint256 diff = endBalance - startBalance;
         
         unchecked {
-            rewards[epochId][vault][token] += endBalance - startBalance;
+            rewards[epochId][vault][token] += diff;
         }
     }
 
