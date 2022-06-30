@@ -8,8 +8,9 @@ import pytest
   Set up one vault -> Avoided by using an account
 """
 
-
-
+@pytest.fixture
+def badger_registry():
+    return accounts.at("0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f", force=True)
 
 @pytest.fixture
 def deployer():
