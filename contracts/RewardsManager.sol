@@ -1040,11 +1040,14 @@ contract RewardsManager is ReentrancyGuard {
     function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) public view returns (VaultInfo memory info) {
         require(epochId < currentEpoch()); // dev: epoch must be over // TODO: if we change to internal we may remove to save gas
 
-        // NOTE: Can probably refactor to send read value and then rest of logic is same for Vault and User
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         if(lastAccrueTime == 0) {
             info.timeLeftToAccrue = SECONDS_PER_EPOCH;
         } else {
+            // NOTE: If we do else if we gotta load the struct into memory
+            // because we optimize for the best case, I believe it's best not to use else if here
+            // If you got math to prove otherwise please share: alex@badger.com
+            
             // An accrual for the epoch has happened
             Epoch memory epochData = getEpochData(epochId);
 
@@ -1098,7 +1101,8 @@ contract RewardsManager is ReentrancyGuard {
         (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
         (uint256 startingContractBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, address(this));
 
-        uint256[] memory amounts = new uint256[](params.tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        uint256 tokensLength = params.tokens.length;
+        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
     
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
@@ -1125,7 +1129,7 @@ contract RewardsManager is ReentrancyGuard {
 
         
             // Use points to calculate amount of rewards
-            for(uint256 i; i < params.tokens.length; ){
+            for(uint256 i; i < tokensLength; ){
                 address token = params.tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
@@ -1139,16 +1143,19 @@ contract RewardsManager is ReentrancyGuard {
             }
 
 
-            // End of iteration
-            userBalanceAtEpochId = userInfo.balance;
-            vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
-            startingContractBalance = thisContractInfo.balance;
+            // End of iteration, assign new balances for next loop
+            unchecked {
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+                startingContractBalance = thisContractInfo.balance;
+            }
 
             unchecked { ++epochId; }
         }
 
-        // == Set up Storage == //
-        {
+        // == Storage Changes == //
+        // No risk of overflow but seems to save 26 gas
+        unchecked {
             // Port over shares from last check
             shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
 
@@ -1165,7 +1172,7 @@ contract RewardsManager is ReentrancyGuard {
 
         // Go ahead and transfer
         {
-            for(uint256 i; i < params.tokens.length; ){
+            for(uint256 i; i < tokensLength; ){
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
                 unchecked { ++i; }
             }
@@ -1187,7 +1194,10 @@ contract RewardsManager is ReentrancyGuard {
         (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
         (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
 
-        uint256[] memory amounts = new uint256[](params.tokens.length); // We'll map out amounts to tokens for the bulk transfers
+        // Cache tokens length, resused in loop and at end for transfer || Saves almost 1k gas over a year of claims
+        uint256 tokensLength = params.tokens.length;
+
+        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
     
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
@@ -1212,7 +1222,7 @@ contract RewardsManager is ReentrancyGuard {
 
         
             // Use points to calculate amount of rewards
-            for(uint256 i; i < params.tokens.length; ){
+            for(uint256 i; i < tokensLength; ){
                 address token = params.tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
@@ -1230,30 +1240,36 @@ contract RewardsManager is ReentrancyGuard {
             }
 
 
-            // End of iteration
-            userBalanceAtEpochId = userInfo.balance;
-            vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+            // End of iteration, assign new balances for next loop
+            unchecked {
+                // Seems to save 26 gas
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+            }
 
             unchecked { ++epochId; }
         }
 
         // == Storage Changes == //
-        // Port over shares from last check
-        shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
+        // No risk of overflow but seems to save 26 gas
+        unchecked {
+            // Port over shares from last check
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
 
-        // Delete the points for that epoch so nothing more to claim
-        delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
+            // Delete the points for that epoch so nothing more to claim
+            delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
 
-        // Because we set the accrue timestamp to end of the epoch
-        lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
-        
-        // And we delete the initial balance meaning they have no balance left
-        delete shares[params.epochStart][params.vault][user];
-        lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
+            // Because we set the accrue timestamp to end of the epoch
+            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
+            
+            // And we delete the initial balance meaning they have no balance left
+            delete shares[params.epochStart][params.vault][user];
+            lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
+        }
 
         // Go ahead and transfer
         {
-            for(uint256 i; i < params.tokens.length; ){
+            for(uint256 i; i < tokensLength; ){
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
                 unchecked { ++i; }
             }
