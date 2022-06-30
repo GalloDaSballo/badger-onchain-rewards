@@ -884,10 +884,6 @@ contract RewardsManager is ReentrancyGuard {
     /// DO NOT USE THESE FUNCTIONS FOR INTEGRATIONS, YOU WILL GET REKT
     /// These functions should be private, but I need to test them right now.
 
-    /// TODO: Because we use `lastAccruedTimestamp` / `lastUserAccrueTimestamp` in both functions to find
-    /// totalSupply and balanceAtEpoch, then we must be able to save 100 gas by avoiding the extra SLOAD
-    /// Over 1 year we already can save another 5k gas through further bulking
-
 
     /// === Otimized functions === ////
     /// Invariant -> Epoch has ended
