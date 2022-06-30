@@ -274,7 +274,10 @@ contract RewardsManager is ReentrancyGuard {
         // NOTE: Refactored to avoid loss of intermediary precision
         uint256 tokensForUser = totalAdditionalReward * pointsLeft / (vaultTotalPoints - thisContractVaultPoints);
         
-        pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
+        unchecked {
+            // Cannot overflow per the math above
+            pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
+        }
 
 
         IERC20(token).safeTransfer(user, tokensForUser);
@@ -712,7 +715,7 @@ contract RewardsManager is ReentrancyGuard {
 
         unchecked {
             // Add Points and use + instead of +=
-            points[epochId][vault][user] = points[epochId][vault][user] + timeLeftToAccrue * currentBalance;
+            points[epochId][vault][user] += timeLeftToAccrue * currentBalance;
         }
 
         // Set last time for updating the user
@@ -1120,7 +1123,7 @@ contract RewardsManager is ReentrancyGuard {
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
-
+        
                 amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
                 unchecked { ++i; }
             }
@@ -1208,8 +1211,12 @@ contract RewardsManager is ReentrancyGuard {
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
 
-                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
-                unchecked { ++i; }
+                
+                unchecked { 
+                    // vaultEpochTotalPoints can't be zero if userEpochTotalPoints is > zero
+                    amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
+                    ++i; 
+                }
             }
 
 
