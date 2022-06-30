@@ -888,85 +888,13 @@ contract RewardsManager is ReentrancyGuard {
     /// totalSupply and balanceAtEpoch, then we must be able to save 100 gas by avoiding the extra SLOAD
     /// Over 1 year we already can save another 5k gas through further bulking
 
-    /// === Epoch TotalSupply / Balance === ////
-    /// Based on the idea that if you know the prev value, and there's no change in this epoch, the value is unchanged
 
-    /// @dev Given previous epoch totalSupply, check if that changed and return the value
-    /// @notice Based on the idea that if you know the previous epoch totalSupply, and it hasn't changed, then it's the same as prev
-    /// If it did change then it was accrued -> lastAccruedTimestamp[epochId][vault] != 0
-    /// Hence we can just return from Storage.
-    /// However in the optimistic case it didn't change, just send back the memory value
-    function getThisEpochTotalSupply(uint256 epochId, address vault, uint256 prevValue) public view returns (uint256) {
-        // Check if we had a change
-        if(lastAccruedTimestamp[epochId][vault] != 0){
-            return totalSupply[epochId][vault]; // We did, hence totalSupply is in this value
-            // Note that this value could be same as prev, but we must return this either way, no point in comparing
-        }
-
-        // If we didn't return prevValue
-        return prevValue;
-    }
-
-    /// @dev Given previous user vault balance, check if that changed and return the value
-    /// @notice Based on the idea explained for `getThisEpochTotalSupply` 
-    function getThisEpochBalance(uint256 epochId, address vault, address user, uint256 prevValue) public view returns (uint256) {
-        // If non-zero, we have a changed balance this epoch, return that
-        if( lastUserAccrueTimestamp[epochId][vault][user] != 0) {
-            return shares[epochId][vault][user]; 
-            // Note that this value could be same as prev, but we must return this either way
-            // Accruing externally will actually cause more gas costs later for that reason
-        }
-
-        // Else return prev value
-        return prevValue;
-    }
-
-    /// === Time left to accrue functions === ////
+    /// === Otimized functions === ////
     /// Invariant -> Epoch has ended
-    /// Invariant -> Never changed means full duration -> We can probably bulk into the same function as above
+    /// Invariant -> Never changed means full duration & Balance is previously known
     /// 2 options. 
-        /// Never accrued -> Means need to accrue full time, just return seconds_per_epoch
-        /// We did accrue -> Send the time left (need for extra checks)
-    function getUserTimeLeftToAccrueForEndedEpoch(uint256 epochId, address vault, address user) public view returns (uint256) {
-        require(epochId < currentEpoch()); // dev: epoch must be over // TODO: if we change to internal we may remove to save gas
-
-        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
-        if(lastBalanceChangeTime == 0) {
-            return SECONDS_PER_EPOCH;
-        }
-
-        // An accrual for the epoch has happened
-        Epoch memory epochData = getEpochData(epochId);
-
-        // Already accrued after epoch end
-        if(lastBalanceChangeTime >= epochData.endTimestamp){
-            return 0;
-        }
-
-
-        return _min(epochData.endTimestamp - lastBalanceChangeTime, SECONDS_PER_EPOCH);
-    }
-
-    function getVaultTimeLeftToAccrueForEndedEpoch(uint256 epochId, address vault) public view returns (uint256) {
-        require(epochId < currentEpoch());
-
-        uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
-        if(lastAccrueTime == 0) {
-            return SECONDS_PER_EPOCH;
-        }
-
-        // An accrual for the epoch has happened
-        Epoch memory epochData = getEpochData(epochId);
-
-        // Already accrued after epoch end
-        if(lastAccrueTime >= epochData.endTimestamp) {
-            return 0;
-        }
-
-        unchecked {
-            return _min(epochData.endTimestamp - lastAccrueTime, SECONDS_PER_EPOCH);
-        }
-    }
+        /// Never accrued -> Use SECONDS_PER_EPOCH and prevBalance
+        /// We did accrue -> Read Storage
     
     /// @dev Get the balance and timeLeft so you can calculate points
     /// @return balance - the balance of the user in this epoch
