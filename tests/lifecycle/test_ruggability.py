@@ -28,6 +28,10 @@ def test_rug(initialized_contract, user, fake_vault, token, badger_registry):
   
   ## Verify rug is successful
   assert balanceAfter - balanceBefore == REWARD_AMOUNT
+
+  ## Only Badger_Registry can rug
+  with brownie.reverts():
+    initialized_contract.rug(token, {"from": badger_registry})
   
 """
   Test rug renouncement
@@ -44,6 +48,10 @@ def test_rug_renouncement(initialized_contract, user, fake_vault, token, badger_
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
+  ## Only Badger_Registry can renounce the rug
+  with brownie.reverts():
+    initialized_contract.renounceRuggability({"from": user})
+  
   ## Rug the reward which will fail due to renouncement
   initialized_contract.renounceRuggability({"from": badger_registry})
   with brownie.reverts():
