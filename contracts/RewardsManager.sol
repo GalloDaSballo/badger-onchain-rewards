@@ -528,8 +528,11 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Will not work with feeOnTransferTokens, use the addReward function for those
     function addBulkRewardsLinearly(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256 total) external nonReentrant {
         require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
-        uint256 totalEpochs = endEpoch - startEpoch + 1;
-        require(totalEpochs != 0); // dev: no epochs
+        require(endEpoch >= startEpoch); // dev: no epochs
+        uint256 totalEpochs;
+        unchecked {
+            totalEpochs = endEpoch - startEpoch + 1;
+        }
         // Amount needs to be equally divisible per epoch, for custom additions, use this and then add more single rewards
         require(total % totalEpochs == 0); // dev: multiple
         uint256 perEpoch = total / totalEpochs;
@@ -560,7 +563,11 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Will not work with feeOnTransferTokens, use the addReward function for those
     function addBulkRewards(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256[] calldata amounts) external nonReentrant {
         require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
-        uint256 totalEpochs = endEpoch - startEpoch + 1;
+        require(endEpoch >= startEpoch); // dev: no epochs
+        uint256 totalEpochs;
+        unchecked {
+            totalEpochs = endEpoch - startEpoch + 1;
+        }
         require(totalEpochs != 0); // dev: no epochs
         require(totalEpochs == amounts.length); // dev: Length Mismatch
 

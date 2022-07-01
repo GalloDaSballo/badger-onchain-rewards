@@ -24,3 +24,4 @@ reports:
         - SafeMath
         - Address
         - SafeERC20
+        - FakeFeeOnTransferToken

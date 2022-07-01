@@ -39,8 +39,6 @@ def test_duplicates(initialized_contract, user, fake_vault, token):
        
 """
   Test revert on validity checks against given epochId
-       getUserTimeLeftToAccrueForEndedEpoch()
-       getVaultTimeLeftToAccrueForEndedEpoch()
        getUserNextEpochInfo()
        getVaultNextEpochInfo()
        claimRewardReference()
@@ -67,10 +65,6 @@ def test_invalid_epochId(initialized_contract, user, fake_vault, token):
   chain.mine()
   
   ## Followings will revert due to given epochId > currentEpoch()
-  with brownie.reverts():
-       initialized_contract.getUserTimeLeftToAccrueForEndedEpoch(invalidEPOCH, fake_vault.address, user.address)
-  with brownie.reverts():
-       initialized_contract.getVaultTimeLeftToAccrueForEndedEpoch(invalidEPOCH, fake_vault.address)
   with brownie.reverts():
        initialized_contract.getUserNextEpochInfo(invalidEPOCH, fake_vault.address, user.address, 0)
   with brownie.reverts():
@@ -269,6 +263,12 @@ def test_bulk_rewards(initialized_contract, user, fake_vault, fee_on_transfer_to
        initialized_contract.addBulkRewardsLinearly(EPOCH, lastEPOCH, fake_vault.address, fee_on_transfer_token.address, REWARD_AMOUNT * 3, {"from": user})  
   with brownie.reverts():
        initialized_contract.addBulkRewards(EPOCH, lastEPOCH, fake_vault.address, fee_on_transfer_token.address, [REWARD_AMOUNT, REWARD_AMOUNT, REWARD_AMOUNT], {"from": user})   
+
+  ## Revert because of totalEpochs = 0
+  with brownie.reverts():
+     initialized_contract.addBulkRewardsLinearly(EPOCH, EPOCH - 1, fake_vault.address, fee_on_transfer_token.address, REWARD_AMOUNT * 3, {"from": user})  
+  with brownie.reverts():
+     initialized_contract.addBulkRewards(EPOCH, EPOCH - 1, fake_vault.address, fee_on_transfer_token.address, [REWARD_AMOUNT, REWARD_AMOUNT, REWARD_AMOUNT], {"from": user})  
 
   ## Add rewards for all epochs will revert due to given rewards array mismacth with given [start, end] length  
   with brownie.reverts():
