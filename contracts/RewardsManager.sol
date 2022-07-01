@@ -56,6 +56,8 @@ contract RewardsManager is ReentrancyGuard {
     uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
+
+    /// Used to store the start and end time for a epoch
     struct Epoch {
         uint256 startTimestamp;
         uint256 endTimestamp;
@@ -113,6 +115,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Given an epoch and a vault, return the time left to accrue
+    /// @return uint256 - Time left to accrue for a given vault within an epoch
     /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epoch <= currentEpoch()
     /// @notice Will return a nonsense value if you query for an epoch in the future 
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
@@ -140,6 +143,8 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+    /// @dev Given and epoch and a vault, returns the appropiate totalSupply for this vault and whether
+    /// the totalSupply should be updated
     /// @return uint256 totalSupply at epochId
     /// @return bool shouldUpdate, should we update the totalSupply[epochId][vault] (as we had to look it up)
     /// @notice we return whether to update because the function has to figure that out
@@ -278,7 +283,6 @@ contract RewardsManager is ReentrancyGuard {
             return; // Nothing to claim
         }
 
-
         (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(epochId, vault);
         (uint256 startingContractBalance, ) = getBalanceAtEpoch(epochId, vault, address(this));
 
@@ -346,8 +350,8 @@ contract RewardsManager is ReentrancyGuard {
         // Then do one bulk transfer of it
         // This is the function you want to use to claim after some time (month or 6 months)
         // This one is without gas refunds, 
-        //  if you are confident in the fact that you're claiming all the tokens for a vault
-        //  you may as well use the optimized version to save more gas
+        // if you are confident in the fact that you're claiming all the tokens for a vault
+        // you may as well use the optimized version to save more gas
         require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
         require(epochEnd < currentEpoch()); // dev: Can't claim if not expired
@@ -407,7 +411,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
     /// @notice This is a one time operation, your storage data will be deleted to trigger gas refunds
     ///         Do this if you want to get the rewards and are sure you're getting all of them
-    /// @notice To be clear. If you forget one token, you are forfeiting those rewards, they won't be recoverable
+    /// @notice To be clear: If you forget one token, you are forfeiting those rewards, they won't be recoverable
     function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
         require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
@@ -730,6 +734,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Figures out the last time the given user was accrued at the epoch for the vault
+    /// @return uint256 - Last time the user was accrued for a given vault and epoch
     /// @notice Invariant -> Never changed means full duration
     /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
     /// @notice Will return a nonsense value if you query for an epoch in the future 
@@ -823,6 +828,7 @@ contract RewardsManager is ReentrancyGuard {
     /// === EPOCH HANDLING ==== ///
 
     /// @dev Returns the current epoch
+    /// @return uint256 - Current epoch
     /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
     function currentEpoch() public view returns (uint256) {
         unchecked {
@@ -831,6 +837,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Returns the start and end times for the Epoch
+    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
     function getEpochData(uint256 epochId) public view returns (Epoch memory) {
         unchecked {
             uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
@@ -840,6 +847,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Returns the EpochData for a givenEpoch
+    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
     function epochs(uint256 epochId) external view returns (Epoch memory) {
         return getEpochData(epochId);
     }
@@ -860,7 +868,8 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @dev Return the minimum out of two numbers
+    /// @dev Math utility to obtain the minimum out of two numbers
+    /// @return uint256 - Minimum number out of two inputs
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
@@ -893,19 +902,20 @@ contract RewardsManager is ReentrancyGuard {
     /// 2 options. 
         /// Never accrued -> Use SECONDS_PER_EPOCH and prevBalance
         /// We did accrue -> Read Storage
-    
-    /// @dev Get the balance and timeLeft so you can calculate points
-    /// @return balance - the balance of the user in this epoch
-    /// @return timeLeftToAccrue - how much time in the epoch left to accrue (userPoints + balance * timeLeftToAccrue == totalPoints)
-    /// @return userEpochTotalPoints - -> The totalPoints, getting them from here will save gas
-    
+
+
+    /// @dev Get the balance and timeLeft so you can calculate points for a user
+    /// @return balance - The balance of the user in this epoch
+    /// @return timeLeftToAccrue - How much time in the epoch left to accrue (userPoints + balance * timeLeftToAccrue == totalPoints)
+    /// @return userEpochTotalPoints - The totalPoints for a user, getting them from here will save gas
+    /// @return pointsInStorage - The total amount of points in storage for a given user
     struct UserInfo {
         uint256 balance;
         uint256 timeLeftToAccrue;
         uint256 userEpochTotalPoints; 
         uint256 pointsInStorage;
     }
-    
+
     /// @dev Return the userEpochInfo for the given epochId, vault, user
     /// @notice Requires `prevEpochBalance` to allow optimized claims
     ///     If an accrual happened during `epochId` it will read data from storage (expensive)
@@ -955,6 +965,12 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+
+    /// @dev Get the totalSupply and timeLeft so you can calculate points for a vault
+    /// @return vaultTotalSupply - The totalSupply of the user in this epoch
+    /// @return timeLeftToAccrue - How much time in the epoch left to accrue (vaultPoints + vaultTotalSupply * timeLeftToAccrue == totalPoints)
+    /// @return vaultEpochTotalPoints - The totalPoints for a vault, getting them from here will save gas
+    /// @return pointsInStorage - The total amount of points in storage for a given vault
     struct VaultInfo {
         uint256 vaultTotalSupply;
         uint256 timeLeftToAccrue;
@@ -1006,7 +1022,11 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-
+    /// @dev Parameters to claim a bulk of tokens for a given vault through the optimized method
+    /// @return epochStart - Start timestamp of the epoch in matter
+    /// @return epochEnd - End timestamp of the epoch in matter
+    /// @return vault - The address of the vault to claim rewards from
+    /// @return tokens - An array of the reward tokens to be claimed 
     struct OptimizedClaimParams {
         uint256 epochStart;
         uint256 epochEnd;
