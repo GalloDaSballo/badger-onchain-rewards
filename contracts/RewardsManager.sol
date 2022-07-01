@@ -12,9 +12,9 @@ import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 /// @notice CREDIT
 /// Most of the code is inspired by:
 /// SNX / CVX RewardsPool
-/// AAVE STAKE V2
-/// COMPOUND
-/// INVERSE.FINANCE Dividend Token
+/// Aave Stake V2
+/// Compound
+/// Inverse.Finance Dividend Token
 /// Pool Together V4
 /// ABOUT THE ARCHITECTURE
 /// Invariant for deposits
