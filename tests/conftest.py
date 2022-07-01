@@ -1,4 +1,4 @@
-from brownie import RewardsManager, accounts, interface, TestVault
+from brownie import RewardsManager, accounts, interface, TestVault, FakeFeeOnTransferToken
 import pytest
 
 
@@ -11,6 +11,10 @@ import pytest
 @pytest.fixture
 def badger_registry():
     return accounts.at("0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f", force=True)
+    
+@pytest.fixture
+def fee_on_transfer_token(deployer):
+    return FakeFeeOnTransferToken.deploy({"from": deployer})
 
 @pytest.fixture
 def deployer():
