@@ -49,28 +49,7 @@ import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 /// Given the points, knowing the rewards amounts to distribute, you know how to split them at the end of each epoch
 
 contract RewardsManager is ReentrancyGuard {
-
-    // == TEST ONLY == //
-
-    bool public canRug = true;
-
-    /// @dev Effectively make the contract owner-less
-    function renounceRuggability() external {
-        require(msg.sender == 0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f);
-        canRug = false;
-    }
-
-    /// @dev Understand that using this even once means the contract invariants are broken
-    /// @notice If this function is ever used a new version of the contract must be deployed 
-    function rug(IERC20 token) external {
-        require(msg.sender == 0xFda7eB6f8b7a9e9fCFd348042ae675d1d652454f);
-        require(canRug);
-
-        token.safeTransfer(msg.sender, token.balanceOf(address(this)));
-    }
-
-    // == END TEST Only == //
-
+    
     using SafeERC20 for IERC20;
 
     uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
