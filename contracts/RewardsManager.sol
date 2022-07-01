@@ -11,9 +11,10 @@ import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 /// @author Alex the Entreprenerd @ BadgerDAO
 /// @notice CREDIT
 /// Most of the code is inspired by:
-/// AAVE STAKE V2
-/// COMPOUND
-/// INVERSE.FINANCE Dividend Token
+/// SNX / CVX RewardsPool
+/// Aave Stake V2
+/// Compound
+/// Inverse.Finance Dividend Token
 /// Pool Together V4
 /// ABOUT THE ARCHITECTURE
 /// Invariant for deposits
@@ -55,8 +56,6 @@ contract RewardsManager is ReentrancyGuard {
     uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
-    
-    uint256 public constant PRECISION = 1e18;
     struct Epoch {
         uint256 startTimestamp;
         uint256 endTimestamp;
@@ -86,7 +85,8 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev Given an epoch and vault, accrue it's totalPoints
     /// @notice You need to accrue a vault before you can claim it's rewards
-    /// @notice You can accrue
+    /// @notice You can accrue by calling this function to save gas if you haven't moved your funds in a while 
+    ///     (or use the bulk function to claim)
     function accrueVault(uint256 epochId, address vault) public {
         require(epochId <= currentEpoch()); // dev: !can only accrue up to current epoch
 
@@ -113,7 +113,8 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Given an epoch and a vault, return the time left to accrue
-    /// @notice will return 0 for epochs in the future or for expired epochs
+    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epoch <= currentEpoch()
+    /// @notice Will return a nonsense value if you query for an epoch in the future 
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         Epoch memory epochData = getEpochData(epochId);
@@ -730,6 +731,8 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev Figures out the last time the given user was accrued at the epoch for the vault
     /// @notice Invariant -> Never changed means full duration
+    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
+    /// @notice Will return a nonsense value if you query for an epoch in the future 
     function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = getEpochData(epochId);
@@ -819,23 +822,26 @@ contract RewardsManager is ReentrancyGuard {
 
     /// === EPOCH HANDLING ==== ///
 
+    /// @dev Returns the current epoch
+    /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
     function currentEpoch() public view returns (uint256) {
         unchecked {
             return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
         }
     }
 
-    function getEpochData(uint256 epochNumber) public view returns (Epoch memory) {
+    /// @dev Returns the start and end times for the Epoch
+    function getEpochData(uint256 epochId) public view returns (Epoch memory) {
         unchecked {
-            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochNumber - 1);
+            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
             uint256 end = start + SECONDS_PER_EPOCH;
             return Epoch(start, end);
         }
     }
 
-    /// @dev To maintain same interface
-    function epochs(uint256 epochNumber) external view returns (Epoch memory) {
-        return getEpochData(epochNumber);
+    /// @dev Returns the EpochData for a givenEpoch
+    function epochs(uint256 epochId) external view returns (Epoch memory) {
+        return getEpochData(epochId);
     }
 
     /// === Utils === ///
@@ -956,7 +962,10 @@ contract RewardsManager is ReentrancyGuard {
         uint256 pointsInStorage;
     }
 
-    /// @dev Same as above but for Vault
+    /// @dev Return the VaultInfo for the given epochId, vault
+    /// @notice Requires `prevEpochTotalSupply` to allow optimized math in case of non-accrual
+    ///     If an accrual happened during `epochId` it will read data from storage (expensive)
+    ///     If no accrual happened (optimistic case), it will use `prevEpochTotalSupply` to compute the rest of the values
     function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) public view returns (VaultInfo memory info) {
         require(epochId < currentEpoch()); // dev: epoch must be over // TODO: if we change to internal we may remove to save gas
 
@@ -1005,7 +1014,10 @@ contract RewardsManager is ReentrancyGuard {
         address[] tokens;
     }
 
-    /// @dev My attempt at making this contract actually usable on mainnet
+    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice Use this function if the vault emits-itself, otherwise use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting`
+    /// @notice Benchmarked to cost about 1.5M gas for 1 year, 5 tokens claimed for 1 vault
+    /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
@@ -1099,7 +1111,11 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @dev See above but for non-emitting strategy
+    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice This function assume that the tokens will not be self-emitting vaults, saving you gas
+    ///     use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage` if if you need to claim from a vault that emits itself
+    /// @notice Benchmarked to cost about 1.3M gas for 1 year, 5 tokens claimed for 1 vault
+    /// @notice Benchmarked to cost about 532k gas for 1 year, 1 token claimed for 1 vault
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
