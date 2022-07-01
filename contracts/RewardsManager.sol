@@ -55,8 +55,6 @@ contract RewardsManager is ReentrancyGuard {
     uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
-    
-    uint256 public constant PRECISION = 1e18;
     struct Epoch {
         uint256 startTimestamp;
         uint256 endTimestamp;
