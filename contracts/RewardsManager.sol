@@ -568,7 +568,6 @@ contract RewardsManager is ReentrancyGuard {
         unchecked {
             totalEpochs = endEpoch - startEpoch + 1;
         }
-        require(totalEpochs != 0); // dev: no epochs
         require(totalEpochs == amounts.length); // dev: Length Mismatch
 
         // Calculate total for one-off transfer
