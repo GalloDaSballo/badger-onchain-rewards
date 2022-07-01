@@ -113,7 +113,8 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Given an epoch and a vault, return the time left to accrue
-    /// @notice will return 0 for epochs in the future or for expired epochs
+    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epoch <= currentEpoch()
+    /// @notice Will return a nonsense value if you query for an epoch in the future 
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         Epoch memory epochData = getEpochData(epochId);
@@ -730,6 +731,8 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev Figures out the last time the given user was accrued at the epoch for the vault
     /// @notice Invariant -> Never changed means full duration
+    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
+    /// @notice Will return a nonsense value if you query for an epoch in the future 
     function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = getEpochData(epochId);
@@ -819,23 +822,26 @@ contract RewardsManager is ReentrancyGuard {
 
     /// === EPOCH HANDLING ==== ///
 
+    /// @dev Returns the current epoch
+    /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
     function currentEpoch() public view returns (uint256) {
         unchecked {
             return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
         }
     }
 
-    function getEpochData(uint256 epochNumber) public view returns (Epoch memory) {
+    /// @dev Returns the start and end times for the Epoch
+    function getEpochData(uint256 epochId) public view returns (Epoch memory) {
         unchecked {
-            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochNumber - 1);
+            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
             uint256 end = start + SECONDS_PER_EPOCH;
             return Epoch(start, end);
         }
     }
 
-    /// @dev To maintain same interface
-    function epochs(uint256 epochNumber) external view returns (Epoch memory) {
-        return getEpochData(epochNumber);
+    /// @dev Returns the EpochData for a givenEpoch
+    function epochs(uint256 epochId) external view returns (Epoch memory) {
+        return getEpochData(epochId);
     }
 
     /// === Utils === ///
