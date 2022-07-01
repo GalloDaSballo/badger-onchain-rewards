@@ -85,7 +85,8 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev Given an epoch and vault, accrue it's totalPoints
     /// @notice You need to accrue a vault before you can claim it's rewards
-    /// @notice You can accrue
+    /// @notice You can accrue by calling this function to save gas if you haven't moved your funds in a while 
+    ///     (or use the bulk function to claim)
     function accrueVault(uint256 epochId, address vault) public {
         require(epochId <= currentEpoch()); // dev: !can only accrue up to current epoch
 
