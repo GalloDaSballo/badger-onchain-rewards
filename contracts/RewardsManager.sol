@@ -962,7 +962,10 @@ contract RewardsManager is ReentrancyGuard {
         uint256 pointsInStorage;
     }
 
-    /// @dev Same as above but for Vault
+    /// @dev Return the VaultInfo for the given epochId, vault
+    /// @notice Requires `prevEpochTotalSupply` to allow optimized math in case of non-accrual
+    ///     If an accrual happened during `epochId` it will read data from storage (expensive)
+    ///     If no accrual happened (optimistic case), it will use `prevEpochTotalSupply` to compute the rest of the values
     function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) public view returns (VaultInfo memory info) {
         require(epochId < currentEpoch()); // dev: epoch must be over // TODO: if we change to internal we may remove to save gas
 
@@ -1011,7 +1014,10 @@ contract RewardsManager is ReentrancyGuard {
         address[] tokens;
     }
 
-    /// @dev My attempt at making this contract actually usable on mainnet
+    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice Use this function if the vault emits-itself, otherwise use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting`
+    /// @notice Benchmarked to cost about 1.5M gas for 1 year, 5 tokens claimed for 1 vault
+    /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
@@ -1105,7 +1111,11 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @dev See above but for non-emitting strategy
+    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice This function assume that the tokens will not be self-emitting vaults, saving you gas
+    ///     use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage` if if you need to claim from a vault that emits itself
+    /// @notice Benchmarked to cost about 1.3M gas for 1 year, 5 tokens claimed for 1 vault
+    /// @notice Benchmarked to cost about 532k gas for 1 year, 1 token claimed for 1 vault
     function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
