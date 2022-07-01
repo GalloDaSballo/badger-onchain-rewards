@@ -11,6 +11,7 @@ import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 /// @author Alex the Entreprenerd @ BadgerDAO
 /// @notice CREDIT
 /// Most of the code is inspired by:
+/// SNX / CVX RewardsPool
 /// AAVE STAKE V2
 /// COMPOUND
 /// INVERSE.FINANCE Dividend Token
