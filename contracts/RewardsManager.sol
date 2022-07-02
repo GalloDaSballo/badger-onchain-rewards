@@ -63,16 +63,16 @@ contract RewardsManager is ReentrancyGuard {
         uint256 endTimestamp;
     }
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch points[epochId][vaultAddress][userAddress]
-    mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch - points[epochId][vaultAddress][userAddress]
+    mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? - pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
     
-    mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch totalPoints[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch - totalPoints[epochId][vaultAddress]
 
     mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; // Last timestamp in we accrued user to calculate rewards in epochs without interaction lastUserAccrueTimestampepochId][vaultAddress][userAddress]
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; // Last timestamp at which we accrued user. Used to calculate rewards in epochs with vault interaction - lastUserAccrueTimestamp[epochId][vaultAddress][userAddress]
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; // Calculate points per each epoch shares[epochId][vaultAddress][userAddress]    
-    mapping(uint256 => mapping(address => uint256)) public totalSupply; // Sum of all deposits for a vault at an epoch totalSupply[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; // Calculate points per each epoch - shares[epochId][vaultAddress][userAddress]    
+    mapping(uint256 => mapping(address => uint256)) public totalSupply; // Sum of all deposits for a vault at an epoch - totalSupply[epochId][vaultAddress]
     // User share of token X is equal to tokensForEpoch * points[epochId][vaultId][userAddress] / totalPoints[epochId][vaultAddress]
     // You accrue one point per second for each second you are in the vault
 
