@@ -412,6 +412,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice This is a one time operation, your storage data will be deleted to trigger gas refunds
     ///         Do this if you want to get the rewards and are sure you're getting all of them
     /// @notice To be clear: If you forget one token, you are forfeiting those rewards, they won't be recoverable
+    /// @notice This is at this point a reference function for `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage`
+    ///     and `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting`. 
+    ///     if you're thinking about using this, you probably should be using one of those
     function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
         require(epochStart <= epochEnd); // dev: epoch math wrong
         uint256 tokensLength = tokens.length;
