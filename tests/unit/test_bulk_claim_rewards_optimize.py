@@ -25,7 +25,7 @@ MaxUint256 = str(int(2 ** 256 - 1))
   _basic
   Security: If you claim, everything goes to zero except the lastAccrueTimestamp, which makes balance always be 0
 
-  Security: If you claim from 2 to 3, you can't use balance of epoch1 to reaccrue and get more rewards -> TODO
+  Security: If you claim from 2 to 3, you can't use balance of epoch1 to reaccrue and get more rewards -> DONE
 """
 
 ## One deposit, total supply is the one deposit
