@@ -1234,4 +1234,70 @@ contract RewardsManager is ReentrancyGuard {
             }
         }
     }
+
+    
+    /// ===== Lens ==== ////
+
+    /// @dev Given OptimizedClaimParams return a list of amounts claimable in bulk, ordered by the tokens
+    function getClaimableBulkRewards(OptimizedClaimParams calldata params, address user) external view returns (uint256[] memory amounts) {
+        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
+        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        _requireNoDuplicates(params.tokens);
+
+        // Get initial balances
+        (uint256 userBalanceAtEpochId, ) = getBalanceAtEpoch(params.epochStart, params.vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = getTotalSupplyAtEpoch(params.epochStart, params.vault);
+        (uint256 startingContractBalance, ) = getBalanceAtEpoch(params.epochStart, params.vault, address(this));
+
+        uint256 tokensLength = params.tokens.length;
+        amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+
+        for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
+
+            // For all epochs from start to end, get user info
+            UserInfo memory userInfo = getUserNextEpochInfo(epochId, params.vault, user, userBalanceAtEpochId);
+            VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, params.vault, vaultSupplyAtEpochId);
+            UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, params.vault, address(this), startingContractBalance);
+
+            // If userPoints are zero, go next fast
+            if (userInfo.userEpochTotalPoints == 0) {
+                // NOTE: By definition user points being zero means storage points are also zero
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+                startingContractBalance = thisContractInfo.balance;
+
+                unchecked { ++epochId; }
+                continue;
+            }
+
+        
+            // Use points to calculate amount of rewards
+            for(uint256 i; i < tokensLength; ){
+                address token = params.tokens[i];
+
+                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+
+                // Use ratio to calculate tokens to send
+                uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
+        
+                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
+                unchecked { ++i; }
+            }
+
+
+            // End of iteration, assign new balances for next loop
+            unchecked {
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+                startingContractBalance = thisContractInfo.balance;
+            }
+
+            unchecked { ++epochId; }
+        }
+
+
+
+        return amounts;
+    }
 }
