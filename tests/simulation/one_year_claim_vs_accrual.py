@@ -104,6 +104,13 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
     if(x > 1):
       ## Second User claims every week
       initialized_contract.claimRewardReference(x-1, real_vault, real_vault, second_user)
+      
+      print("real_vault.balanceOf(user)")
+      print(real_vault.balanceOf(user))
+
+
+      print("real_vault.balanceOf(second_user)")
+      print(real_vault.balanceOf(second_user))
 
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
