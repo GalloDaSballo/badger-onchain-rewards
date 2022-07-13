@@ -289,7 +289,6 @@ contract RewardsManager is ReentrancyGuard {
         VaultInfo memory vaultInfo = getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
         UserInfo memory thisContractInfo = getUserNextEpochInfo(epochId, vault, address(this), startingContractBalance);
 
-
         // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
         require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
 
