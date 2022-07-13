@@ -133,4 +133,4 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   print("delta_two")
   print(delta_two)
 
-  assert  delta_one -  delta_two < REWARD_AMOUNT ## Less than one week of claims
+  assert  abs(delta_one -  delta_two) < REWARD_AMOUNT ## Less than one week of claims
