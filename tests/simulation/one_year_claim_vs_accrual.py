@@ -62,34 +62,43 @@ def test_full_deposit_claim_one_year_of_rewards_with_bulk_function_no_optimizati
   assert  delta_one -  delta_two < 1e18 ## Less than one token billionth of a token (due to Brownie and how it counts for time)
 
 
-def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer, second_user, real_vault):
-  INITIAL_DEPOSIT = 1e18
-  
+def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer, second_user, real_vault, token):  
   EPOCH = initialized_contract.currentEpoch() + 51
 
   total_bal = real_vault.balanceOf(user)
 
-  ## Now each has 1/3
-  real_vault.transfer(deployer, total_bal // 3 , {"from": user})
-  real_vault.transfer(second_user, total_bal // 3, {"from": user})
+  ## Now each has 1/2
+  real_vault.transfer(second_user, total_bal // 2 , {"from": user})
+
+
 
   ## Dev will send rewards
-  REWARD_AMOUNT = real_vault.balanceOf(deployer) // EPOCH
+  REWARD_AMOUNT = token.balanceOf(deployer) // EPOCH
 
-  INITIAL_DEPOSIT = REWARD_AMOUNT * 20 ## Assumes 200% APR
+  print("REWARD_AMOUNT")
+  print(REWARD_AMOUNT)
+
+  assert REWARD_AMOUNT > 0
 
   ## Because user has the tokens too, we check the balance here
   initial_reward_balance = real_vault.balanceOf(user)
   initial_reward_balance_second = real_vault.balanceOf(second_user)
 
-  real_vault.approve(initialized_contract, MaxUint256, {"from": deployer})
+  print("initial_reward_balance")
+  print(initial_reward_balance)
 
-  ## Only deposit so we get 50% of rewards per user
-  initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": real_vault})
-  initialized_contract.notifyTransfer(AddressZero, second_user, INITIAL_DEPOSIT, {"from": real_vault})
+  print("initial_reward_balance_second")
+  print(initial_reward_balance_second)
+
+  assert initial_reward_balance > 0
+  assert initial_reward_balance_second > 0
+
+  token.approve(real_vault, MaxUint256, {"from": deployer})
+  real_vault.approve(initialized_contract, MaxUint256, {"from": deployer})
 
   ## Wait 51 epochs
   for x in range(1, 52):
+    real_vault.deposit(REWARD_AMOUNT, {"from": deployer})
     initialized_contract.addReward(x, real_vault, real_vault, REWARD_AMOUNT, {"from": deployer})
 
     if(x > 1):
@@ -110,5 +119,11 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   ## Compare balances at end
   delta_one = real_vault.balanceOf(user) - initial_reward_balance
   delta_two = real_vault.balanceOf(second_user) - initial_reward_balance_second
+
+  print("delta_one")
+  print(delta_one)
   
+  print("delta_two")
+  print(delta_two)
+
   assert  delta_one -  delta_two < REWARD_AMOUNT ## Less than one week of claims
