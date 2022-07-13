@@ -90,7 +90,7 @@ def setup_contract(deployer):
 """
 @pytest.fixture
 def deposit_amount():
-  return 1e18
+  return 100_000e18
 
 @pytest.fixture
 def real_vault(token, initialized_contract, deployer, deposit_amount, user):

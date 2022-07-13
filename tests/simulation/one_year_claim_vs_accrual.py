@@ -72,6 +72,8 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
 
   REWARD_AMOUNT = real_vault.balanceOf(deployer) // EPOCH
 
+  INITIAL_DEPOSIT = REWARD_AMOUNT * 20 ## Assumes 200% APR
+
   ## Because user has the tokens too, we check the balance here
   initial_reward_balance = token.balanceOf(user)
   initial_reward_balance_second = token.balanceOf(second_user)
@@ -104,4 +106,5 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   ## Compare balances at end
   delta_one = token.balanceOf(user) - initial_reward_balance
   delta_two = token.balanceOf(second_user) - initial_reward_balance_second
-  assert  delta_one -  delta_two < 1e18 ## Less than one token billionth of a token (due to Brownie and how it counts for time)
+  
+  assert  delta_one -  delta_two < REWARD_AMOUNT ## Less than one week of claims
