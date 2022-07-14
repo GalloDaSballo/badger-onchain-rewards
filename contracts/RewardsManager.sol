@@ -559,10 +559,9 @@ contract RewardsManager is ReentrancyGuard {
         // Calculate total for one-off transfer
         uint256 total;
         for(uint256 i; i < totalEpochs; ) {
-            unchecked {
-                total += amounts[i];
-                ++i;
-            }
+            // NOTE: Cannot have unchecked as overflow can be used to add rewards for free - QSP-1
+            total += amounts[i];
+            ++i;
         }
 
         // Transfer Token in, must receive the exact total
