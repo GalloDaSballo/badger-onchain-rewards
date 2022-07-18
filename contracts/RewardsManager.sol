@@ -121,14 +121,13 @@ contract RewardsManager is ReentrancyGuard {
     function getVaultTimeLeftToAccrue(uint256 epochId, address vault) public view returns (uint256) {
         uint256 lastAccrueTime = lastAccruedTimestamp[epochId][vault];
         Epoch memory epochData = getEpochData(epochId);
+        
         if(lastAccrueTime >= epochData.endTimestamp) {
             return 0; // Already accrued
         }
 
-        uint256 maxTime = block.timestamp;
-        if(maxTime > epochData.endTimestamp) {
-            maxTime = epochData.endTimestamp;
-        }
+        uint256 maxTime = _min(block.timestamp, epochData.endTimestamp);
+
         // return _min(end, now) - start;
         if(lastAccrueTime == 0) {
             unchecked {
@@ -752,10 +751,7 @@ contract RewardsManager is ReentrancyGuard {
         }
 
         // Cap maxTime at epoch end
-        uint256 maxTime = block.timestamp;
-        if(maxTime > epochData.endTimestamp) {
-            maxTime = epochData.endTimestamp;
-        }
+        uint256 maxTime = _min(block.timestamp, epochData.endTimestamp);
 
         // If timestamp is 0, we never accrued
         // return _min(end, now) - start;
