@@ -88,7 +88,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
 
   ## Claim rewards via the bulk function
   ## Btw only you can claim for yourself
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": user})
+  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
 
   ## Verify you got the entire reward amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT

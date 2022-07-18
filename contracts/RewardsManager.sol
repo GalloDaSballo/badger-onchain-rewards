@@ -53,7 +53,7 @@ contract RewardsManager is ReentrancyGuard {
     
     using SafeERC20 for IERC20;
 
-    uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
+    uint256 public DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
 
@@ -404,104 +404,7 @@ contract RewardsManager is ReentrancyGuard {
 
             unchecked { ++i; }
         }
-    }
-    
-    /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
-    /// @notice This is a one time operation, your storage data will be deleted to trigger gas refunds
-    ///         Do this if you want to get the rewards and are sure you're getting all of them
-    /// @notice To be clear: If you forget one token, you are forfeiting those rewards, they won't be recoverable
-    /// @notice This is at this point a reference function for `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage`
-    ///     and `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting`. 
-    ///     if you're thinking about using this, you probably should be using one of those
-    function claimBulkTokensOverMultipleEpochsOptimized(uint256 epochStart, uint256 epochEnd, address vault, address[] calldata tokens) external {
-        require(epochStart <= epochEnd); // dev: epoch math wrong
-        uint256 tokensLength = tokens.length;
-        address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
-        // NOTE: We don't cache currentEpoch as we never use it again
-        require(epochEnd < currentEpoch()); // dev: epoch math wrong 
-        _requireNoDuplicates(tokens);
-
-        // Claim the tokens mentioned
-        // Over the epochs mentioned
-        // Using an accumulator instead of doing multiple transfers
-        // Deleting all shares, points and lastAccrueTimestamp data at the end to trigger gas refunds
-        // Bulking the transfer at the end to make it cheaper for gas
-
-        // This is the function you want to use to claim when you want to collect all and call it
-        // Calling this function will make you renounce any other token rewards (to trigger the gas refund)
-        // So make sure you're claiming all the rewards you want before doing this
-
-        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
-        for(uint epochId = epochStart; epochId <= epochEnd;) {
-            // Accrue each vault and user for each epoch
-            accrueUser(epochId, vault, user);
-
-            // Now that they are accrue, just use the points to estimate reward and send
-            uint256 userPoints = points[epochId][vault][user];
-
-            // Early return
-            if(userPoints == 0){
-                unchecked { ++epochId; }
-                continue;
-            }
-
-            accrueUser(epochId, vault, address(this)); // Accrue this contract points
-            accrueVault(epochId, vault);
-
-            uint256 vaultTotalPoints = totalPoints[epochId][vault];
-            uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
-
-            // NOTE: We don't set the pointsWithdrawn here because we will set the user shares to 0 later
-            // While maintainingn lastAccrueTimestamp to now so they can't reaccrue
-
-            // Loop over the tokens and see the points here
-            for(uint256 i; i < tokensLength; ){
-                address token = tokens[i];
-
-                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-                // To allow for this I could loop and check they are all zero, which would allow for further optimization
-                require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
-
-                // Use ratio to calculate tokens to send
-                uint256 totalAdditionalReward = rewards[epochId][vault][token];
-
-                // uint256 tokensForUser = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
-                amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
-                unchecked { ++i; }
-            }
-
-            unchecked { ++epochId; }
-        }
-
-        // We've done the math, delete to trigger refunds
-        for(uint epochId = epochStart; epochId < epochEnd; ) {
-            // epochId < epochEnd because we need to preserve the last one for future accruals and balance tracking
-            delete shares[epochId][vault][user]; // Delete shares 
-            delete points[epochId][vault][user]; // Delete their points
-
-            unchecked { ++epochId; }
-        }
-
-        // Optimization: can delete timestamp data on everything between epochStart and epochEnd
-        // because shares will be zero in this interval (due to above deletes) so any accrual will not actually add
-        // points. Need to keep the timestamp data on epochStart so you can't go backwards from one of these middle epochs
-        // to get a non-zero balance and get points again
-        unchecked {
-            // Sums cannot overflow
-            for(uint epochId = epochStart + 1; epochId < epochEnd; ++epochId) {
-                delete lastUserAccrueTimestamp[epochId][vault][user];
-            }
-        }
-        
-        // For last epoch, we don't delete the shares, but we delete the points
-        delete points[epochEnd][vault][user];
-
-        // Go ahead and transfer
-        for(uint256 i; i < tokensLength; ){
-            IERC20(tokens[i]).safeTransfer(user, amounts[i]);
-            unchecked { ++i; }
-        }
-    }
+    }    
 
     /// === Bulk Claims END === ///
 
@@ -584,33 +487,11 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @notice Utility function to specify a group of emissions for the specified epochs, vaults with tokens
-    function addRewards(uint256[] calldata epochIds, address[] calldata vaults, address[] calldata tokens, uint256[] calldata amounts) external nonReentrant{
-        uint256 vaultsLength = vaults.length;
-        require(vaultsLength == epochIds.length); // dev: length mismatch
-        require(vaultsLength == amounts.length); // dev: length mismatch
-        require(vaultsLength == tokens.length); // dev: length mismatch
-
-        for(uint256 i; i < vaultsLength; ){
-            _addReward(epochIds[i], vaults[i], tokens[i], amounts[i]);
-
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    /// @dev see `_addReward`
-    function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
-        _addReward(epochId, vault, token, amount);
-    }
-
-
     /// @notice Add an additional reward for the current epoch
     /// @notice No particular rationale as to why we wouldn't allow to send rewards for older epochs or future epochs
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     /// @notice nonReentrant because tokens could inflate rewards, this would only apply to the specific token, see reports for more
-    function _addReward(uint256 epochId, address vault, address token, uint256 amount) internal {
+    function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
         require(epochId >= currentEpoch()); // dev: cannot add to past
         require(vault != address(0)); // dev: dork
 

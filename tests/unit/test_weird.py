@@ -46,6 +46,3 @@ def test_add_reward_zero_add(initialized_contract, user, fake_vault, token):
 
   with brownie.reverts():
     initialized_contract.addBulkRewards(123, 123, AddressZero, token, [10e18], {"from": user})
-
-  with brownie.reverts():
-    initialized_contract.addRewards([123], [AddressZero], [token], [10e18], {"from": user})
