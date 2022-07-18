@@ -9,8 +9,7 @@ MaxUint256 = str(int(2 ** 256 - 1))
 """
   Tests for QSP-2
   Optimized functions will burn shares if user uses them with 1 epoch range (same epoch start and end)
-  -> TODO: Pre-Fix -> Test fails
-  -> Post-FIX -> Test Passes and shares are tracked properly
+  -> Post-FIX -> Test Passes because of overflow protection
 """
 
 def test_can_get_rewards_for_zero_due_to_overflow(initialized_contract, deployer, fake_vault, token):
