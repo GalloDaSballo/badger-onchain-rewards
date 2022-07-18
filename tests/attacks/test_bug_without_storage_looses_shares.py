@@ -13,3 +13,11 @@ MaxUint256 = str(int(2 ** 256 - 1))
   -> Post-FIX -> Test Passes and shares are tracked properly
 """
 
+def test_can_get_rewards_for_zero_due_to_overflow(initialized_contract, deployer, fake_vault, token):
+  ## Before fix, no revert, rewards are set, but no tokens are transfered | After fix, reverts
+  with brownie.reverts():
+    initialized_contract.addBulkRewards(3, 4, fake_vault, token,[MaxUint256, 1], {"from": deployer})
+
+
+  
+
