@@ -1109,9 +1109,6 @@ contract RewardsManager is ReentrancyGuard {
         // == Storage Changes == //
         // No risk of overflow but seems to save 26 gas
         unchecked {
-            // Port over shares from last check
-            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
-
             // Delete the points for that epoch so nothing more to claim
             delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
 
@@ -1121,6 +1118,9 @@ contract RewardsManager is ReentrancyGuard {
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
             lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
+
+            // Port over shares from last check || NOTE: Port over last to mitigate QSP-2
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
         }
 
         // Go ahead and transfer
@@ -1210,8 +1210,6 @@ contract RewardsManager is ReentrancyGuard {
         // == Storage Changes == //
         // No risk of overflow but seems to save 26 gas
         unchecked {
-            // Port over shares from last check
-            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
 
             // Delete the points for that epoch so nothing more to claim
             delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
@@ -1222,6 +1220,9 @@ contract RewardsManager is ReentrancyGuard {
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
             lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
+
+            // Port over shares from last check || NOTE: Port over last to mitigate QSP-2
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
         }
 
         // Go ahead and transfer

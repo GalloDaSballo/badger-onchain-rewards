@@ -69,6 +69,8 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting_bas
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT
 
   ## Vault total Points are non-zero
+  ## if we accrue vault, which we can as change is non-destructive to vault data
+  initialized_contract.accrueVault(EPOCH, fake_vault)
   assert initialized_contract.totalPoints(EPOCH, fake_vault) > 0
   ## And vault total Supply are non-zero
   assert initialized_contract.totalSupply(EPOCH, fake_vault) > 0
