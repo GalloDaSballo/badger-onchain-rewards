@@ -515,6 +515,7 @@ contract RewardsManager is ReentrancyGuard {
     function addBulkRewardsLinearly(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256 total) external nonReentrant {
         require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
         require(endEpoch >= startEpoch); // dev: no epochs
+        require(vault != address(0)); // dev: dork
         uint256 totalEpochs;
         unchecked {
             totalEpochs = endEpoch - startEpoch + 1;
@@ -550,6 +551,7 @@ contract RewardsManager is ReentrancyGuard {
     function addBulkRewards(uint256 startEpoch, uint256 endEpoch, address vault, address token, uint256[] calldata amounts) external nonReentrant {
         require(startEpoch >= currentEpoch()); // dev: Cannot add in the past
         require(endEpoch >= startEpoch); // dev: no epochs
+        require(vault != address(0)); // dev: dork
         uint256 totalEpochs;
         unchecked {
             totalEpochs = endEpoch - startEpoch + 1;
@@ -610,7 +612,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     /// @notice nonReentrant because tokens could inflate rewards, this would only apply to the specific token, see reports for more
     function _addReward(uint256 epochId, address vault, address token, uint256 amount) internal {
-        require(epochId >= currentEpoch());
+        require(epochId >= currentEpoch()); // dev: cannot add to past
+        require(vault != address(0)); // dev: dork
 
         // Check change in balance to support `feeOnTransfer` tokens as well
         uint256 startBalance = IERC20(token).balanceOf(address(this));  

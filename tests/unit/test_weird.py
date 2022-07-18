@@ -35,3 +35,17 @@ def test_zero_balance_epoch_two(initialized_contract, user, fake_vault, token):
   ## Check that we have non-zero balance and totalSupply for current
   assert initialized_contract.getBalanceAtEpoch(initialized_contract.currentEpoch(), fake_vault, user)[0] == INITIAL_DEPOSIT
   assert initialized_contract.getTotalSupplyAtEpoch(initialized_contract.currentEpoch(), fake_vault)[0] == INITIAL_DEPOSIT
+
+
+def test_add_reward_zero_add(initialized_contract, user, fake_vault, token):
+  with brownie.reverts():
+    initialized_contract.addReward(123, AddressZero, token, 10e18, {"from": user})
+  
+  with brownie.reverts():
+    initialized_contract.addBulkRewardsLinearly(123, 124, AddressZero, token, 10e18, {"from": user})
+
+  with brownie.reverts():
+    initialized_contract.addBulkRewards(123, 123, AddressZero, token, [10e18], {"from": user})
+
+  with brownie.reverts():
+    initialized_contract.addRewards([123], [AddressZero], [token], [10e18], {"from": user})
