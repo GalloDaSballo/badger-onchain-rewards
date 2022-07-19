@@ -39,7 +39,8 @@ def test_accrue_future_balance_out_of_whack(initialized_contract, user, fake_vau
   assert initialized_contract.getBalanceAtEpoch(EPOCH, fake_vault, user)[0] == 0
 
   ## Future epoch baalnce is INITIAL_DEPOSIT ## fixed because can't accrue future
-  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
+  with brownie.reverts():
+    assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
 
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -77,8 +78,9 @@ def test_accrue_future_breaks_time_left_to_accrue(initialized_contract, user, fa
   ## Current epoch balance is 0
   assert initialized_contract.getBalanceAtEpoch(EPOCH, fake_vault, user)[0] == 0
 
-  ## Future epoch baalnce is INITIAL_DEPOSIT
-  assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
+  ## Future epoch baalnce is INITIAL_DEPOSIT | Reverts
+  with brownie.reverts():
+    assert initialized_contract.getBalanceAtEpoch(EPOCH + 1, fake_vault, user)[0] == 0
 
   ## Go next epoch
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
