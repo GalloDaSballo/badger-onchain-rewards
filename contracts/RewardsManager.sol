@@ -81,10 +81,13 @@ contract RewardsManager is ReentrancyGuard {
     // EpochId for Transfer is implied by block.timestamp (and can be fetched there)
     event Transfer(address indexed vault, address indexed from, address indexed to, uint256 amount);
 
-    event AddReward(uint256 indexed epochId, address indexed vault, address indexed token, uint256 amount, address sender);
+    event AddReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed sender);
 
-    // TODO: 100k+ gas cost on bulk claims, must refactor
-    event ClaimReward(uint256 indexed epochId, address indexed vault, address indexed token, uint256 amount, address claimer);
+    // Claiming of rewards may be done in bulk, information will be incomplete, as such we `epochId` is not indexed 
+    event ClaimReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed claimer);
+
+    // Fired off when using bulk claim functions to save gas
+    event BulkClaimReward(uint256 startEpoch, uint256 endEpoch, address indexed vault, address indexed token, uint256 totalAmount, address indexed claimer);
 
     constructor() {
         DEPLOY_TIME = block.timestamp;
@@ -404,10 +407,8 @@ contract RewardsManager is ReentrancyGuard {
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
                 // Which means they claimed all points for that token
                 pointsWithdrawn[epochId][vault][user][tokens[i]] = userPoints; // Can assign because we checked it's 0 above
-                uint256 amount = totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
-                amounts[i] += amount;
 
-                emit ClaimReward(epochId, vault, tokens[i], amount, user);
+                amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
 
                 unchecked { ++i; }
             }
@@ -417,6 +418,9 @@ contract RewardsManager is ReentrancyGuard {
 
         // Go ahead and transfer
         for(uint256 i; i < tokensLength; ){
+
+            emit BulkClaimReward(epochStart, epochEnd, vault, tokens[i], amounts[i], user);
+
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
 
             unchecked { ++i; }
@@ -519,6 +523,7 @@ contract RewardsManager is ReentrancyGuard {
 
         // Go ahead and transfer
         for(uint256 i; i < tokensLength; ){
+            emit BulkClaimReward(epochStart, epochEnd, vault, tokens[i], amounts[i], user);
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
             unchecked { ++i; }
         }
@@ -1124,8 +1129,6 @@ contract RewardsManager is ReentrancyGuard {
 
                 amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
 
-                emit ClaimReward(epochId, params.vault, token, totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints), msg.sender);
-
                 unchecked { ++i; }
             }
 
@@ -1160,6 +1163,7 @@ contract RewardsManager is ReentrancyGuard {
         // Go ahead and transfer
         {
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
                 unchecked { ++i; }
             }
@@ -1226,8 +1230,6 @@ contract RewardsManager is ReentrancyGuard {
                 unchecked { 
                     // vaultEpochTotalPoints can't be zero if userEpochTotalPoints is > zero
                     amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
-
-                    emit ClaimReward(epochId, params.vault, token, totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints, user);
                     ++i; 
                 }
             }
@@ -1264,6 +1266,7 @@ contract RewardsManager is ReentrancyGuard {
         // Go ahead and transfer
         {
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
                 unchecked { ++i; }
             }
