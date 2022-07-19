@@ -87,8 +87,7 @@ contract RewardsManager is ReentrancyGuard {
     event ClaimReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed claimer);
 
     // Fired off when using bulk claim functions to save gas
-    // NOTE: We don't list tokens nor amounts to save gas, see events for that
-    event BulkClaimReward(uint256 startEpoch, uint256 endEpoch, address indexed vault, address indexed claimer);
+    event BulkClaimReward(uint256 startEpoch, uint256 endEpoch, address indexed vault, address indexed token, uint256 totalAmount, address indexed claimer);
 
     constructor() {
         DEPLOY_TIME = block.timestamp;
@@ -417,10 +416,11 @@ contract RewardsManager is ReentrancyGuard {
             unchecked { ++epochId; }
         }
 
-        emit BulkClaimReward(epochStart, epochEnd, vault, user);
 
         // Go ahead and transfer
         for(uint256 i; i < tokensLength; ){
+            emit BulkClaimReward(epochStart, epochEnd, vault, tokens[i], amounts[i], user);
+
 
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
 
@@ -522,11 +522,12 @@ contract RewardsManager is ReentrancyGuard {
         // For last epoch, we don't delete the shares, but we delete the points
         delete points[epochEnd][vault][user];
 
-        emit BulkClaimReward(epochStart, epochEnd, vault, user);
-
         // Go ahead and transfer
         for(uint256 i; i < tokensLength; ){
+            emit BulkClaimReward(epochStart, epochEnd, vault, tokens[i], amounts[i], user);
+
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
+
             unchecked { ++i; }
         }
     }
@@ -1165,10 +1166,11 @@ contract RewardsManager is ReentrancyGuard {
         // Go ahead and transfer
         {
 
-            emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, user);
-
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
+
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+
                 unchecked { ++i; }
             }
         }
@@ -1270,10 +1272,11 @@ contract RewardsManager is ReentrancyGuard {
         // Go ahead and transfer
         {
 
-            emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, user);
-
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
+                
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+                
                 unchecked { ++i; }
             }
         }
