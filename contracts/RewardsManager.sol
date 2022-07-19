@@ -83,7 +83,7 @@ contract RewardsManager is ReentrancyGuard {
 
     event AddReward(uint256 indexed epochId, address indexed vault, address indexed token, uint256 amount, address sender);
 
-    // NOTE: Massive pain in the ass to do properly
+    // TODO: 100k+ gas cost on bulk claims, must refactor
     event ClaimReward(uint256 indexed epochId, address indexed vault, address indexed token, uint256 amount, address claimer);
 
     constructor() {
