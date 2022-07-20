@@ -850,7 +850,9 @@ contract RewardsManager is ReentrancyGuard {
             if(lastBalanceChangeTime >= epochData.endTimestamp){
                 // timeLeftToAccrue = 0; // No need to set
             } else {
-                info.timeLeftToAccrue = _min(epochData.endTimestamp - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+                unchecked {
+                    info.timeLeftToAccrue = _min(epochData.endTimestamp - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+                }
             }
         }
 
@@ -866,11 +868,15 @@ contract RewardsManager is ReentrancyGuard {
         // Never accrued means points in storage are 0
         if(lastBalanceChangeTime == 0) {
             // Just multiply from scratch
-            info.userEpochTotalPoints = info.balance * info.timeLeftToAccrue;
+            unchecked {
+                info.userEpochTotalPoints = info.balance * info.timeLeftToAccrue;
+            }
         } else {
             // We have accrued, return the sum of points from storage and the points that are not accrued
             info.pointsInStorage = points[epochId][vault][user];
-            info.userEpochTotalPoints = info.pointsInStorage + info.balance * info.timeLeftToAccrue;
+            unchecked {
+                info.userEpochTotalPoints = info.pointsInStorage + info.balance * info.timeLeftToAccrue;
+            }
         }
     }
 
@@ -917,7 +923,9 @@ contract RewardsManager is ReentrancyGuard {
             if(lastAccrueTime >= epochData.endTimestamp) {
                 // timeLeftToAccrue = 0;
             } else {
-                info.timeLeftToAccrue = _min(epochData.endTimestamp - lastAccrueTime, SECONDS_PER_EPOCH);
+                unchecked {
+                    info.timeLeftToAccrue = _min(epochData.endTimestamp - lastAccrueTime, SECONDS_PER_EPOCH);
+                }
             }
         }
 
@@ -929,12 +937,13 @@ contract RewardsManager is ReentrancyGuard {
 
 
         if(lastAccrueTime == 0) {
-            // Just multiply from scratch
+        // Just multiply from scratch || Cannot use unchecked to avoid overflow - QSP-5
             info.vaultEpochTotalPoints = info.vaultTotalSupply * info.timeLeftToAccrue;
             // pointsInStorage = 0;
         } else {
             // We have accrued, return the sum of points from storage and the points that are not accrued
             info.pointsInStorage = totalPoints[epochId][vault];
+            // Cannot use unchecked to avoid overflow - QSP-5
             info.vaultEpochTotalPoints = info.pointsInStorage + info.vaultTotalSupply * info.timeLeftToAccrue;
         }
     }
