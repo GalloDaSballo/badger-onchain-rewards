@@ -78,6 +78,17 @@ contract RewardsManager is ReentrancyGuard {
 
     mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
     
+    // EpochId for Transfer is implied by block.timestamp (and can be fetched there)
+    event Transfer(address indexed vault, address indexed from, address indexed to, uint256 amount);
+
+    event AddReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed sender);
+
+    // Claiming of rewards may be done in bulk, information will be incomplete, as such we `epochId` is not indexed 
+    event ClaimReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed claimer);
+
+    // Fired off when using bulk claim functions to save gas
+    event BulkClaimReward(uint256 startEpoch, uint256 endEpoch, address indexed vault, address indexed token, uint256 totalAmount, address indexed claimer);
+
     constructor() {
         DEPLOY_TIME = block.timestamp;
     }
@@ -276,6 +287,8 @@ contract RewardsManager is ReentrancyGuard {
             pointsWithdrawn[epochId][vault][user][token] += pointsLeft;
         }
 
+        emit ClaimReward(epochId, vault, token, tokensForUser, user);
+
         // Transfer the token
         IERC20(token).safeTransfer(user, tokensForUser);
     }
@@ -312,6 +325,8 @@ contract RewardsManager is ReentrancyGuard {
         // We checked it was zero, no need to add
         pointsWithdrawn[epochId][vault][user][token] = userInfo.userEpochTotalPoints;
 
+        emit ClaimReward(epochId, vault, token, tokensForUser, user);
+
         IERC20(token).safeTransfer(user, tokensForUser);
     }
 
@@ -345,6 +360,8 @@ contract RewardsManager is ReentrancyGuard {
         
         // We checked it was zero, no need to add
         pointsWithdrawn[epochId][vault][user][token] = userInfo.userEpochTotalPoints;
+
+        emit ClaimReward(epochId, vault, token, tokensForUser, user);
 
         IERC20(token).safeTransfer(user, tokensForUser);
     }
@@ -400,6 +417,7 @@ contract RewardsManager is ReentrancyGuard {
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
                 // Which means they claimed all points for that token
                 pointsWithdrawn[epochId][vault][user][tokens[i]] = userPoints; // Can assign because we checked it's 0 above
+
                 amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
 
                 unchecked { ++i; }
@@ -408,14 +426,17 @@ contract RewardsManager is ReentrancyGuard {
             unchecked { ++epochId; }
         }
 
+
         // Go ahead and transfer
         for(uint256 i; i < tokensLength; ){
+            emit BulkClaimReward(epochStart, epochEnd, vault, tokens[i], amounts[i], user);
+
+
             IERC20(tokens[i]).safeTransfer(user, amounts[i]);
 
             unchecked { ++i; }
         }
     }    
-
     /// === Bulk Claims END === ///
 
     /// === Add Bulk Rewards === ///
@@ -445,6 +466,8 @@ contract RewardsManager is ReentrancyGuard {
 
         // Give each epoch an equal amount of reward
         for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
+            
+            emit AddReward(epochId, vault, token, perEpoch, msg.sender);
             
             unchecked {
                 rewards[epochId][vault][token] += perEpoch;
@@ -487,8 +510,13 @@ contract RewardsManager is ReentrancyGuard {
 
         // Give each epoch an equal amount of reward
         for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
+
+            uint256 currentAmount = amounts[epochId - startEpoch];
+
+            emit AddReward(epochId, vault, token, currentAmount, msg.sender);
+
             unchecked {
-                rewards[epochId][vault][token] += amounts[epochId - startEpoch];
+                rewards[epochId][vault][token] += currentAmount;
             }
 
             unchecked { 
@@ -516,6 +544,8 @@ contract RewardsManager is ReentrancyGuard {
         unchecked {
             rewards[epochId][vault][token] += diff;
         }
+
+        emit AddReward(epochId, vault, token, diff, msg.sender);
     }
 
     /// **== Notify System ==** ///
@@ -536,6 +566,8 @@ contract RewardsManager is ReentrancyGuard {
         } else {
             _handleTransfer(msg.sender, from, to, amount);
         }
+
+        emit Transfer(msg.sender, from, to, amount);
     }
 
     /// @dev handles a deposit for vault, to address of amount
@@ -1013,11 +1045,12 @@ contract RewardsManager is ReentrancyGuard {
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
-
+                
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
-        
+
                 amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
+
                 unchecked { ++i; }
             }
 
@@ -1051,8 +1084,12 @@ contract RewardsManager is ReentrancyGuard {
 
         // Go ahead and transfer
         {
+
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
+
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+
                 unchecked { ++i; }
             }
         }
@@ -1154,8 +1191,12 @@ contract RewardsManager is ReentrancyGuard {
 
         // Go ahead and transfer
         {
+
             for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
+                
                 IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+                
                 unchecked { ++i; }
             }
         }
