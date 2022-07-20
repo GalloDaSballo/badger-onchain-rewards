@@ -40,3 +40,7 @@ Solution:
 Accrue the contract and calculate the totalSupply - thisContract Supply
 
 Status: Mitigated
+
+
+## Potential Attack Vectors to Explore
+- Can you cause the Points to be greater than TotalPoints, allowing to extract more than the rewards for one epoch for one vault?

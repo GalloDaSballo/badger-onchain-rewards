@@ -107,11 +107,11 @@ contract RewardsManager is ReentrancyGuard {
             lastAccruedTimestamp[epochId][vault] = block.timestamp;
             return;
         }
-        unchecked {
-            totalPoints[epochId][vault] += timeLeftToAccrue * supply;
-            lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
-            // Setting to the actual time when `accrueVault` was called may help with debugging though
-        }
+
+        // Removed unchecked per QSP-5
+        totalPoints[epochId][vault] += timeLeftToAccrue * supply;
+        lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
+        // Setting to the actual time when `accrueVault` was called may help with debugging though
     }
 
     /// @dev see _getVaultTimeLeftToAccrue
@@ -548,10 +548,10 @@ contract RewardsManager is ReentrancyGuard {
         unchecked {
             // Add deposit data for user
             shares[cachedCurrentEpoch][vault][to] += amount;
-
-            // And total shares for epoch
-            totalSupply[cachedCurrentEpoch][vault] += amount;
         }
+        // And total shares for epoch // Remove unchecked per QSP-5
+        totalSupply[cachedCurrentEpoch][vault] += amount;
+
     }
 
     /// @dev handles a withdraw for vault, from address of amount
