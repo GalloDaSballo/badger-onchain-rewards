@@ -210,6 +210,7 @@ contract RewardsManager is ReentrancyGuard {
 
 
     /// @dev Allow to bulk claim rewards, inputs are fairly wasteful
+    /// @notice We may delete this function as you could just build a periphery contract for this
     function claimRewards(uint256[] calldata epochsToClaim, address[] calldata vaults, address[] calldata tokens, address[] calldata users) external {
         uint256 usersLength = users.length;
         uint256 epochLength = epochsToClaim.length;
@@ -385,8 +386,6 @@ contract RewardsManager is ReentrancyGuard {
 
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
             uint256 thisContractVaultPoints = points[epochId][vault][address(this)];
-
-
 
             // We multiply just to avoid rounding
 
@@ -940,7 +939,7 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @dev Parameters to claim a bulk of tokens for a given vault through the optimized method
+    /// @dev Parameters to claim a bulk of tokens for a given vault through the `reap` and `tear` destructive methods
     /// @return epochStart - Start timestamp of the epoch in matter
     /// @return epochEnd - End timestamp of the epoch in matter
     /// @return vault - The address of the vault to claim rewards from
@@ -953,10 +952,11 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
-    /// @notice Use this function if the vault emits-itself, otherwise use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting`
+    /// @notice This is a DESTRUCTIVE claim, your onChain data will be deleted to make the claim cheaper
+    /// @notice Use this function if the vault emits-itself, otherwise use `tear`
     /// @notice Benchmarked to cost about 1.5M gas for 1 year, 5 tokens claimed for 1 vault
     /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
-    function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(OptimizedClaimParams calldata params) external {
+    function reap(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
@@ -1050,11 +1050,12 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice This is a DESTRUCTIVE claim, your onChain data will be deleted to make the claim cheaper
     /// @notice This function assume that the tokens will not be self-emitting vaults, saving you gas
-    ///     use `claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage` if if you need to claim from a vault that emits itself
+    ///     use `reap` if if you need to claim from a vault that emits itself
     /// @notice Benchmarked to cost about 1.3M gas for 1 year, 5 tokens claimed for 1 vault
     /// @notice Benchmarked to cost about 532k gas for 1 year, 1 token claimed for 1 vault
-    function claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(OptimizedClaimParams calldata params) external {
+    function tear(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 

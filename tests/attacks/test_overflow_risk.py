@@ -53,7 +53,7 @@ def test_cannot_overflow_points(initialized_contract, deployer, user, fake_vault
     initialized_contract.claimBulkTokensOverMultipleEpochs(EPOCH, EPOCH, fake_vault, [token], user, {"from": user})
 
   with brownie.reverts():
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
+    initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
   
   with brownie.reverts():
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
+    initialized_contract.tear([EPOCH, EPOCH, fake_vault, [token]], {"from": user})

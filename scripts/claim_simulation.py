@@ -54,7 +54,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_optimization():
   print(initialized_contract.currentEpoch())
 
   ## Claim Bulk
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, EPOCHS, fake_vault, tokens], {"from": user})
+  tx = initialized_contract.reap([1, EPOCHS, fake_vault, tokens], {"from": user})
 
   print("Gas Cost to add")
   print(EPOCHS)

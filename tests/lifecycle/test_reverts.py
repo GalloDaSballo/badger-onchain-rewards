@@ -35,7 +35,7 @@ def test_duplicates(initialized_contract, user, fake_vault, token):
   duplicateArrays = [fake_vault.address, token.address, token.address]
   claimParams = [EPOCH, lastEPOCH, fake_vault.address, duplicateArrays]
   with brownie.reverts():
-       claimTx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user})
+       claimTx = initialized_contract.tear(claimParams, {"from": user})
        
 """
   Test revert on validity checks against given epochId
@@ -78,7 +78,7 @@ def test_invalid_epochId(initialized_contract, user, fake_vault, token):
        
 """
   Test revert on epoch which already claimed thus can't be optimized 
-       claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage()
+       reap()
 """
 def test_bulk_claim_over_already_claimed(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
@@ -112,22 +112,22 @@ def test_bulk_claim_over_already_claimed(initialized_contract, user, fake_vault,
   ## Claim rewards over multiple epochs will revert due to epochStart > epochEnd
   claimParams = [lastEPOCH, EPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(claimParams, {"from": user}) 
+       initialized_contract.reap(claimParams, {"from": user}) 
        
   ## Claim rewards over multiple epochs will revert due to epochEnd >= currentEpoch()
   claimParams = [EPOCH, invalidEPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(claimParams, {"from": user}) 
+       initialized_contract.reap(claimParams, {"from": user}) 
        
   ## Claim rewards over multiple epochs will revert due to one of the given epochs has been claimed
   claimParams = [EPOCH, EPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(claimParams, {"from": user})
+       initialized_contract.reap(claimParams, {"from": user})
        
   ## Claim rewards over rest epochs will be good
   balBefore = token.balanceOf(user.address)
   claimParams = [nextEPOCH, lastEPOCH, fake_vault.address, [token.address]]  
-  claimTx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(claimParams, {"from": user})
+  claimTx = initialized_contract.reap(claimParams, {"from": user})
   balAfter = token.balanceOf(user.address)
   assert balAfter > balBefore ## should get some reward before withdrwal
   startAccrueTimestamp = initialized_contract.lastUserAccrueTimestamp(nextEPOCH, fake_vault.address, user.address)
@@ -136,7 +136,7 @@ def test_bulk_claim_over_already_claimed(initialized_contract, user, fake_vault,
        
 """
   Test revert on epoch which already claimed thus can't be optimized 
-       claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting()
+       tear()
 """
 def test_bulk_claim_non_emitting_over_already_claimed(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
@@ -170,22 +170,22 @@ def test_bulk_claim_non_emitting_over_already_claimed(initialized_contract, user
   ## Claim rewards over multiple epochs will revert due to epochStart > epochEnd
   claimParams = [lastEPOCH, EPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user}) 
+       initialized_contract.tear(claimParams, {"from": user}) 
        
   ## Claim rewards over multiple epochs will revert due to epochEnd >= currentEpoch()
   claimParams = [EPOCH, invalidEPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user}) 
+       initialized_contract.tear(claimParams, {"from": user}) 
        
   ## Claim rewards over multiple epochs will revert due to one of the given epochs has been claimed
   claimParams = [EPOCH, EPOCH, fake_vault.address, [token.address]]
   with brownie.reverts():
-       initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user})
+       initialized_contract.tear(claimParams, {"from": user})
        
   ## Claim rewards over rest epochs will be good
   balBefore = token.balanceOf(user.address)
   claimParams = [nextEPOCH, lastEPOCH, fake_vault.address, [token.address]]  
-  claimTx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user})
+  claimTx = initialized_contract.tear(claimParams, {"from": user})
   balAfter = token.balanceOf(user.address)
   assert balAfter > balBefore ## should get some reward before withdrwal
   startAccrueTimestamp = initialized_contract.lastUserAccrueTimestamp(nextEPOCH, fake_vault.address, user.address)

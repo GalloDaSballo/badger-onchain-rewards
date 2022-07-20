@@ -121,7 +121,7 @@ def test_full_deposit_one_week_bulk_function(initialized_contract, user, fake_va
   chain.mine()
 
   ## Claim rewards here
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting([1, 1, fake_vault, [token]], {"from": user})
+  tx = initialized_contract.tear([1, 1, fake_vault, [token]], {"from": user})
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT

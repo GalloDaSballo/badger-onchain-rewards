@@ -57,7 +57,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_basic(initiali
 
   ## Claim rewards via the bulk function
   ## Btw only you can claim for yourself
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
 
 
   ## Because we use the optimized
@@ -125,7 +125,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_cannotClaimFor
   """
     Cannot claim for someone else
   """
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
 
   ## They got nothing
   assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
@@ -163,7 +163,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_permissions(in
   """
     Cannot claim for someone else
   """
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
 
   ## They got nothing
   assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
@@ -176,7 +176,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_permissions(in
       Cannot claim if epoch not ended
   """
   with brownie.reverts("dev: epoch math wrong"):
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
+    initialized_contract.reap([EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 
   """
@@ -195,7 +195,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_permissions(in
 
   ## Which will set `pointsWithdrawn` to non-zero causing revert on the check
   with brownie.reverts("dev: You already accrued during the epoch, cannot optimize"):
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
+    initialized_contract.reap([CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 
 
@@ -242,8 +242,8 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_cannot_use_old
   assert initialized_contract.currentEpoch() == 4
   
   ## Claim rewards for 2 and 3 for both users
-  initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([2, 3, fake_vault, [token]], {"from": user})
-  initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([2, 3, fake_vault, [token]], {"from": second_user})
+  initialized_contract.reap([2, 3, fake_vault, [token]], {"from": user})
+  initialized_contract.reap([2, 3, fake_vault, [token]], {"from": second_user})
 
   """
     User 1 flow
@@ -282,7 +282,7 @@ def test_bulk_claim_no_points(initialized_contract, user, fake_vault, token, sec
   chain.mine()
 
   ## With no points you get no rewards
-  initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, 1, fake_vault, [token]], {"from": user})
+  initialized_contract.reap([1, 1, fake_vault, [token]], {"from": user})
 
   ## No tokens received
   assert initial_bal == token.balanceOf(second_user)
@@ -290,7 +290,7 @@ def test_bulk_claim_no_points(initialized_contract, user, fake_vault, token, sec
 def test_bulk_claim_revert(initialized_contract, user, fake_vault, token, second_user):
   ## Revert is epoch_start > epoch_end
   with brownie.reverts():
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, 0, fake_vault, [token]], {"from": user})
+    initialized_contract.reap([1, 0, fake_vault, [token]], {"from": user})
   
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
@@ -298,4 +298,4 @@ def test_bulk_claim_revert(initialized_contract, user, fake_vault, token, second
 
   ## Revert if claiming same token
   with brownie.reverts():
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage([1, 1, fake_vault, [token, token]], {"from": user})
+    initialized_contract.reap([1, 1, fake_vault, [token, token]], {"from": user})

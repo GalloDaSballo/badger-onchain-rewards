@@ -48,7 +48,7 @@ def test_claim_non_emitting(initialized_contract, user, fake_vault, token):
   assert userEpochTotalPoints == userPointsWithdrawn and userPointsWithdrawn == userTimeToAccure * userBalanceAtEpochId
 
 """
-  Test claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting
+  Test tear
 """
 def test_bulk_claim_non_emitting(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
@@ -74,7 +74,7 @@ def test_bulk_claim_non_emitting(initialized_contract, user, fake_vault, token):
   ## Claim rewards over multiple epochs
   balBefore = token.balanceOf(user.address)
   claimParams = [EPOCH, lastEPOCH, fake_vault.address, [token.address]]
-  claimTx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting(claimParams, {"from": user})
+  claimTx = initialized_contract.tear(claimParams, {"from": user})
   
   ## Verify all rewards for multiple epochs have been claimed  
   balAfter = token.balanceOf(user.address)
@@ -88,7 +88,7 @@ def test_bulk_claim_non_emitting(initialized_contract, user, fake_vault, token):
   assert pointsLast == 0
 
 """
-  Test claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage
+  Test reap
 """
 def test_bulk_claim(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
@@ -114,7 +114,7 @@ def test_bulk_claim(initialized_contract, user, fake_vault, token):
   ## Claim rewards over multiple epochs
   balBefore = token.balanceOf(user.address)
   claimParams = [EPOCH, lastEPOCH, fake_vault.address, [token.address]]
-  claimTx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage(claimParams, {"from": user})
+  claimTx = initialized_contract.reap(claimParams, {"from": user})
   
   ## Verify all rewards for multiple epochs have been claimed  
   balAfter = token.balanceOf(user.address)
