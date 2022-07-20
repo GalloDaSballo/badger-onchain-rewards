@@ -1132,7 +1132,7 @@ contract RewardsManager is ReentrancyGuard {
             delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
 
             // Because we set the accrue timestamp to end of the epoch
-            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
+            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set this so user can't claim and their balance here is non-zero / last known
             
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
