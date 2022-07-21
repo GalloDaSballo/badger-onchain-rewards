@@ -35,6 +35,10 @@ def test_zero_balance_epoch_two(initialized_contract, user, fake_vault, token):
   ## Check that we have non-zero balance and totalSupply for current
   assert initialized_contract.getBalanceAtEpoch(initialized_contract.currentEpoch(), fake_vault, user)[0] == INITIAL_DEPOSIT
   assert initialized_contract.getTotalSupplyAtEpoch(initialized_contract.currentEpoch(), fake_vault)[0] == INITIAL_DEPOSIT
+  
+  ## Test revert case: require(epochId <= currentEpoch()); 
+  with brownie.reverts():
+       initialized_contract.getTotalSupplyAtEpoch(2000, fake_vault)
 
 
 def test_add_reward_zero_add(initialized_contract, user, fake_vault, token):
