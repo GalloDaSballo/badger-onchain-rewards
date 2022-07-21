@@ -70,8 +70,6 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   ## Now each has 1/2
   real_vault.transfer(second_user, total_bal // 2 , {"from": user})
 
-
-
   ## Dev will send rewards
   REWARD_AMOUNT = token.balanceOf(deployer) // EPOCH
 
@@ -120,7 +118,7 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   chain.mine()
 
   ## User 1 claims
-  initialized_contract.claimBulkTokensOverMultipleEpochs(1, 51, real_vault, [real_vault], user, {"from": user})
+  initialized_contract.tear([1, 51, real_vault, [real_vault]], {"from": user})
   initialized_contract.claimRewardReferenceEmitting(51, real_vault, real_vault, second_user) ## Claim last epoch just to be sure
 
   ## Compare balances at end
@@ -134,4 +132,5 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
   print(delta_two)
 
   ## Around 6 times worse if you use these functions
+  assert delta_two / abs(delta_one -  delta_two) < 3 ## Two does get more tokens but they are less than 3 times the amt 1 gets
   assert abs(delta_one -  delta_two) < REWARD_AMOUNT ## Less than one week of claims
