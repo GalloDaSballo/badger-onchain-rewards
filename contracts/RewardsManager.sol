@@ -824,7 +824,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
 
-    /// ===== EXPERIMENTAL ==== ////
+    /// ===== GAS OPTIMIZED BULK CLAIMS ==== ////
 
     /// NOTE: Non storage writing functions
     /// With the goal of making view functions cheap
