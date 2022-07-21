@@ -54,6 +54,7 @@ contract RewardsManager is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
+    
     uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
 
@@ -63,20 +64,32 @@ contract RewardsManager is ReentrancyGuard {
         uint256 endTimestamp;
     }
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch - points[epochId][vaultAddress][userAddress]
-    mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? - pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
-    
-    mapping(uint256 => mapping(address => uint256)) public totalPoints; // Sum of all points given for a vault at an epoch - totalPoints[epochId][vaultAddress]
 
-    mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; // Last timestamp at which we accrued user. Used to calculate rewards in epochs with vault interaction - lastUserAccrueTimestamp[epochId][vaultAddress][userAddress]
+    // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; 
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; // Calculate points per each epoch - shares[epochId][vaultAddress][userAddress]    
-    mapping(uint256 => mapping(address => uint256)) public totalSupply; // Sum of all deposits for a vault at an epoch - totalSupply[epochId][vaultAddress]
+    // Last timestamp at which we accrued user. Used to calculate rewards in epochs with vault interaction - lastUserAccrueTimestamp[epochId][vaultAddress][userAddress]
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; 
+
+    // Calculate points per each epoch - shares[epochId][vaultAddress][userAddress]    
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; 
+
+    // Sum of all deposits for a vault at an epoch - totalSupply[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => uint256)) public totalSupply; 
+
+    // Calculate points per each epoch - points[epochId][vaultAddress][userAddress]
     // User share of token X is equal to tokensForEpoch * points[epochId][vaultId][userAddress] / totalPoints[epochId][vaultAddress]
     // You accrue one point per second for each second you are in the vault
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public points; 
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
+    // Given point for epoch how many where withdrawn by user? - pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
+    mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; 
+    
+    // Sum of all points given for a vault at an epoch - totalPoints[epochId][vaultAddress]
+    mapping(uint256 => mapping(address => uint256)) public totalPoints; 
+
+    // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; 
     
     // EpochId for Transfer is implied by block.timestamp (and can be fetched there)
     event Transfer(address indexed vault, address indexed from, address indexed to, uint256 amount);
@@ -508,7 +521,7 @@ contract RewardsManager is ReentrancyGuard {
 
         require(endBalance - startBalance == total); // dev: no weird fees bruh
 
-        // Give each epoch an equal amount of reward
+        // Add specific amount for each epoch
         for(uint256 epochId = startEpoch; epochId <= endEpoch; ) {
 
             uint256 currentAmount = amounts[epochId - startEpoch];
