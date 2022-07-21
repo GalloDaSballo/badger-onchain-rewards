@@ -994,114 +994,11 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
     /// @notice This is a DESTRUCTIVE claim, your onChain data will be deleted to make the claim cheaper
-    /// @notice Use this function if the vault emits-itself, otherwise use `tear`
-    /// @notice Benchmarked to cost about 1.5M gas for 1 year, 5 tokens claimed for 1 vault
-    /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
-    function reap(OptimizedClaimParams calldata params) external {
-        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
-        address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
-        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
-        _requireNoDuplicates(params.tokens);
-
-        // Instead of accruing user and vault, we just compute the values in the loop
-        // We can use those value for reward distribution
-        // We must update the storage that we don't delete to ensure that user can only claim once
-        // This is equivalent to deleting the user storage
-
-        (uint256 userBalanceAtEpochId, ) = _getBalanceAtEpoch(params.epochStart, params.vault, user);
-        (uint256 vaultSupplyAtEpochId, ) = _getTotalSupplyAtEpoch(params.epochStart, params.vault);
-        (uint256 startingContractBalance, ) = _getBalanceAtEpoch(params.epochStart, params.vault, address(this));
-
-        uint256 tokensLength = params.tokens.length;
-        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
-    
-        for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
-
-            // For all epochs from start to end, get user info
-            UserInfo memory userInfo = _getUserNextEpochInfo(epochId, params.vault, user, userBalanceAtEpochId);
-            VaultInfo memory vaultInfo = _getVaultNextEpochInfo(epochId, params.vault, vaultSupplyAtEpochId);
-            UserInfo memory thisContractInfo = _getUserNextEpochInfo(epochId, params.vault, address(this), startingContractBalance);
-
-            // If userPoints are zero, go next fast
-            if (userInfo.userEpochTotalPoints == 0) {
-                // NOTE: By definition user points being zero means storage points are also zero
-                userBalanceAtEpochId = userInfo.balance;
-                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
-                startingContractBalance = thisContractInfo.balance;
-
-                unchecked { ++epochId; }
-                continue;
-            }
-
-            // Use the info to get userPoints and vaultPoints
-            if (userInfo.pointsInStorage > 0) {
-                delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
-            }
-
-        
-            // Use points to calculate amount of rewards
-            for(uint256 i; i < tokensLength; ){
-                address token = params.tokens[i];
-
-                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
-                
-                // Use ratio to calculate tokens to send
-                uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
-
-                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
-
-                unchecked { ++i; }
-            }
-
-
-            // End of iteration, assign new balances for next loop
-            unchecked {
-                userBalanceAtEpochId = userInfo.balance;
-                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
-                startingContractBalance = thisContractInfo.balance;
-            }
-
-            unchecked { ++epochId; }
-        }
-
-        // == Storage Changes == //
-        // No risk of overflow but seems to save 26 gas
-        unchecked {
-            // Delete the points for that epoch so nothing more to claim
-            delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
-
-            // Because we set the accrue timestamp to end of the epoch
-            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
-            
-            // And we delete the initial balance meaning they have no balance left
-            delete shares[params.epochStart][params.vault][user];
-            lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
-
-            // Port over shares from last check || NOTE: Port over last to mitigate QSP-2
-            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
-        }
-
-        // Go ahead and transfer
-        {
-
-            for(uint256 i; i < tokensLength; ){
-                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
-
-                IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
-
-                unchecked { ++i; }
-            }
-        }
-    }
-
-    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
-    /// @notice This is a DESTRUCTIVE claim, your onChain data will be deleted to make the claim cheaper
     /// @notice This function assume that the tokens will not be self-emitting vaults, saving you gas
-    ///     use `reap` if if you need to claim from a vault that emits itself
+    ///     use `tear` if if you need to claim from a vault that emits itself
     /// @notice Benchmarked to cost about 1.3M gas for 1 year, 5 tokens claimed for 1 vault
     /// @notice Benchmarked to cost about 532k gas for 1 year, 1 token claimed for 1 vault
-    function tear(OptimizedClaimParams calldata params) external {
+    function reap(OptimizedClaimParams calldata params) external {
         require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
         require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
@@ -1202,6 +1099,108 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
+    /// @dev Given the Claim Values, perform bulk claims over multiple epochs, minimizing SSTOREs to save gas
+    /// @notice This is a DESTRUCTIVE claim, your onChain data will be deleted to make the claim cheaper
+    /// @notice Use this function if the vault emits-itself, otherwise use `reap`
+    /// @notice Benchmarked to cost about 1.5M gas for 1 year, 5 tokens claimed for 1 vault
+    /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
+    function tear(OptimizedClaimParams calldata params) external {
+        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
+        address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
+        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        _requireNoDuplicates(params.tokens);
+
+        // Instead of accruing user and vault, we just compute the values in the loop
+        // We can use those value for reward distribution
+        // We must update the storage that we don't delete to ensure that user can only claim once
+        // This is equivalent to deleting the user storage
+
+        (uint256 userBalanceAtEpochId, ) = _getBalanceAtEpoch(params.epochStart, params.vault, user);
+        (uint256 vaultSupplyAtEpochId, ) = _getTotalSupplyAtEpoch(params.epochStart, params.vault);
+        (uint256 startingContractBalance, ) = _getBalanceAtEpoch(params.epochStart, params.vault, address(this));
+
+        uint256 tokensLength = params.tokens.length;
+        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+    
+        for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
+
+            // For all epochs from start to end, get user info
+            UserInfo memory userInfo = _getUserNextEpochInfo(epochId, params.vault, user, userBalanceAtEpochId);
+            VaultInfo memory vaultInfo = _getVaultNextEpochInfo(epochId, params.vault, vaultSupplyAtEpochId);
+            UserInfo memory thisContractInfo = _getUserNextEpochInfo(epochId, params.vault, address(this), startingContractBalance);
+
+            // If userPoints are zero, go next fast
+            if (userInfo.userEpochTotalPoints == 0) {
+                // NOTE: By definition user points being zero means storage points are also zero
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+                startingContractBalance = thisContractInfo.balance;
+
+                unchecked { ++epochId; }
+                continue;
+            }
+
+            // Use the info to get userPoints and vaultPoints
+            if (userInfo.pointsInStorage > 0) {
+                delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
+            }
+
+        
+            // Use points to calculate amount of rewards
+            for(uint256 i; i < tokensLength; ){
+                address token = params.tokens[i];
+
+                // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+                
+                // Use ratio to calculate tokens to send
+                uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
+
+                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
+
+                unchecked { ++i; }
+            }
+
+
+            // End of iteration, assign new balances for next loop
+            unchecked {
+                userBalanceAtEpochId = userInfo.balance;
+                vaultSupplyAtEpochId = vaultInfo.vaultTotalSupply;
+                startingContractBalance = thisContractInfo.balance;
+            }
+
+            unchecked { ++epochId; }
+        }
+
+        // == Storage Changes == //
+        // No risk of overflow but seems to save 26 gas
+        unchecked {
+            // Delete the points for that epoch so nothing more to claim
+            delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
+
+            // Because we set the accrue timestamp to end of the epoch
+            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
+            
+            // And we delete the initial balance meaning they have no balance left
+            delete shares[params.epochStart][params.vault][user];
+            lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
+
+            // Port over shares from last check || NOTE: Port over last to mitigate QSP-2
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
+        }
+
+        // Go ahead and transfer
+        {
+
+            for(uint256 i; i < tokensLength; ){
+                emit BulkClaimReward(params.epochStart, params.epochEnd, params.vault, params.tokens[i], amounts[i], user);
+
+                IERC20(params.tokens[i]).safeTransfer(user, amounts[i]);
+
+                unchecked { ++i; }
+            }
+        }
+    }
     
     /// ===== Lens ==== ////
 
