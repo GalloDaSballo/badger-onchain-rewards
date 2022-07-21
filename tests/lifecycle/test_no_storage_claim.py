@@ -35,10 +35,10 @@ def test_claim_non_emitting(initialized_contract, user, fake_vault, token):
   userInfo = initialized_contract.getUserNextEpochInfo(EPOCH, fake_vault.address, user.address, userBalanceAtEpochId)
   userEpochTotalPoints = userInfo[2]
   userTimeToAccure = userInfo[1]
-  initialized_contract.claimRewardNonEmitting(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
+  initialized_contract.claimReward(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
   
   ## Dummy claim from Zero address 
-  dummyClaim = initialized_contract.claimRewardNonEmitting(EPOCH, fake_vault.address, token.address, AddressZero, {"from": user})
+  dummyClaim = initialized_contract.claimReward(EPOCH, fake_vault.address, token.address, AddressZero, {"from": user})
   assert len(dummyClaim.events) == 0
   
   ## Verify all rewards for the epoch has been claimed  

@@ -34,7 +34,7 @@ def test_full_deposit_one_week_reference(initialized_contract, user, fake_vault,
   chain.mine()
 
   ## Claim rewards here
-  tx = initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user)
+  tx = initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
@@ -63,7 +63,7 @@ def test_full_deposit_one_week(initialized_contract, user, fake_vault, token):
   chain.mine()
 
   ## Claim rewards here
-  tx = initialized_contract.claimReward(EPOCH, fake_vault, token, user)
+  tx = initialized_contract.claimRewardEmitting(EPOCH, fake_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
@@ -92,7 +92,7 @@ def test_full_deposit_one_week_nonEmitting(initialized_contract, user, fake_vaul
   chain.mine()
 
   ## Claim rewards here
-  tx = initialized_contract.claimRewardNonEmitting(EPOCH, fake_vault, token, user)
+  tx = initialized_contract.claimReward(EPOCH, fake_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT

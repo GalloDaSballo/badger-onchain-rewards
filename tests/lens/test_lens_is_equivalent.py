@@ -134,7 +134,7 @@ def test_getClaimableBulkRewards_coverage(initialized_contract, user, fake_vault
   initialized_contract.addReward(nxtEPOCH, fake_vault, token, REWARD_AMOUNT, {"from": user})
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-  initialized_contract.claimReward(nxtEPOCH, fake_vault, token, user, {"from": user})
+  initialized_contract.claimRewardEmitting(nxtEPOCH, fake_vault, token, user, {"from": user})
 
   ## Test revert cases: require(pointsWithdrawn[epochId][params.vault][user][token] == 0);
   claimParams = [nxtEPOCH, nxtEPOCH, fake_vault.address, [token.address]]

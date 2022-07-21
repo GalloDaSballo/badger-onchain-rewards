@@ -35,7 +35,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault, token):
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, fake_vault, token, user)
+  initialized_contract.claimRewardEmitting(EPOCH, fake_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
