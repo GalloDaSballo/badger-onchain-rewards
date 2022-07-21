@@ -543,6 +543,9 @@ contract RewardsManager is ReentrancyGuard {
 
         unchecked {
             rewards[epochId][vault][token] += diff;
+            // TODO: Refactor all Rewards to the Struct Below
+            // TODO: Update so that adding a reward will accrue and stuff
+            rewardsInfo[epochId][vault][token] = RewardInfo(diff, block.timestamp, 0);
         }
 
         emit AddReward(epochId, vault, token, diff, msg.sender);
