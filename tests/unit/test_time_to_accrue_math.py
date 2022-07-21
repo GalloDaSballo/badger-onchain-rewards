@@ -137,4 +137,15 @@ def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
   epoch_two_end = epoch_two[1]
   assert initialized_contract.getUserTimeLeftToAccrue(2, fake_vault, user) == epoch_two_end - epoch_two_start ## Accrue happens at deposit
 
+def test_getUserTimeLeftToAccure_revert(initialized_contract, user, fake_vault):
+  INITIAL_DEPOSIT = 1e18
+
+  EPOCH = 1
+
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+  time_of_deposit = deposit_tx.timestamp
+  ## Test revert case: require(epochId <= currentEpoch());
+  with brownie.reverts():
+       initialized_contract.getUserTimeLeftToAccrue(EPOCH + 1000, fake_vault, user)
+
 
