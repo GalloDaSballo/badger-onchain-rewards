@@ -120,3 +120,6 @@ def test_revert_if_accrue_future(initialized_contract, user, fake_vault):
   
   with brownie.reverts(): 
     initialized_contract.accrueVault(epoch + 1, fake_vault)
+    
+  with brownie.reverts(): 
+    initialized_contract.getVaultTimeLeftToAccrue(epoch + 1000, fake_vault)
