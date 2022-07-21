@@ -44,10 +44,10 @@ def test_cannot_overflow_points(initialized_contract, deployer, user, fake_vault
   ## The other functions that minimize storage usage are not going
 
   with brownie.reverts():
-    initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user, {"from": user})
+    initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault, token, user, {"from": user})
 
   with brownie.reverts():
-    initialized_contract.claimReward(EPOCH, fake_vault, token, user, {"from": user})
+    initialized_contract.claimRewardEmitting(EPOCH, fake_vault, token, user, {"from": user})
 
   with brownie.reverts():
     initialized_contract.claimBulkTokensOverMultipleEpochs(EPOCH, EPOCH, fake_vault, [token], user, {"from": user})

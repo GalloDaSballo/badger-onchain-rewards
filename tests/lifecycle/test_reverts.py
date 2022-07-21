@@ -41,9 +41,9 @@ def test_duplicates(initialized_contract, user, fake_vault, token):
   Test revert on validity checks against given epochId
        getUserNextEpochInfo()
        getVaultNextEpochInfo()
-       claimRewardReference()
+       claimRewardReferenceEmitting()
+       claimRewardEmitting()
        claimReward()
-       claimRewardNonEmitting()
        
 """       
 def test_invalid_epochId(initialized_contract, user, fake_vault, token):
@@ -70,11 +70,11 @@ def test_invalid_epochId(initialized_contract, user, fake_vault, token):
   with brownie.reverts():
        initialized_contract.getVaultNextEpochInfo(invalidEPOCH, fake_vault.address, 0)
   with brownie.reverts():
-       initialized_contract.claimRewardReference(invalidEPOCH, fake_vault.address, token.address, user.address, {'from': user})
+       initialized_contract.claimRewardReferenceEmitting(invalidEPOCH, fake_vault.address, token.address, user.address, {'from': user})
+  with brownie.reverts():
+       initialized_contract.claimRewardEmitting(invalidEPOCH, fake_vault.address, token.address, user.address, {'from': user})
   with brownie.reverts():
        initialized_contract.claimReward(invalidEPOCH, fake_vault.address, token.address, user.address, {'from': user})
-  with brownie.reverts():
-       initialized_contract.claimRewardNonEmitting(invalidEPOCH, fake_vault.address, token.address, user.address, {'from': user})
        
 """
   Test revert on epoch which already claimed thus can't be optimized 
@@ -102,7 +102,7 @@ def test_bulk_claim_over_already_claimed(initialized_contract, user, fake_vault,
   advanceTime = initialized_contract.SECONDS_PER_EPOCH() + 1
   chain.sleep(advanceTime * 1 + 1000)
   chain.mine()
-  initialized_contract.claimRewardReference(EPOCH, fake_vault.address, token.address, user.address, {'from': user}) 
+  initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault.address, token.address, user.address, {'from': user}) 
 
   ## Withdraw from staking and wait all epochs to end  
   initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
@@ -160,7 +160,7 @@ def test_bulk_claim_non_emitting_over_already_claimed(initialized_contract, user
   advanceTime = initialized_contract.SECONDS_PER_EPOCH() + 1
   chain.sleep(advanceTime * 1 + 1000)
   chain.mine()
-  initialized_contract.claimRewardReference(EPOCH, fake_vault.address, token.address, user.address, {'from': user}) 
+  initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault.address, token.address, user.address, {'from': user}) 
 
   ## Withdraw from staking and wait all epochs to end  
   initialized_contract.notifyTransfer(user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
@@ -212,10 +212,10 @@ def test_claim_non_emitting_revert(initialized_contract, user, fake_vault, token
   chain.mine()
   
   ## Second claim will revert due to this epoch has been claimed before
-  initialized_contract.claimRewardReference(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
+  initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
   assert initialized_contract.pointsWithdrawn(EPOCH, fake_vault.address, user.address, token.address) > 0
   with brownie.reverts():
-       initialized_contract.claimRewardNonEmitting(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
+       initialized_contract.claimReward(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
        
 """
   Test claimReward revert on claimed-already
@@ -237,10 +237,10 @@ def test_claim_revert(initialized_contract, user, fake_vault, token):
   chain.mine()
   
   ## Second claim will revert due to this epoch has been claimed before
-  initialized_contract.claimRewardReference(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
+  initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
   assert initialized_contract.pointsWithdrawn(EPOCH, fake_vault.address, user.address, token.address) > 0
   with brownie.reverts():
-       initialized_contract.claimReward(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
+       initialized_contract.claimRewardEmitting(EPOCH, fake_vault.address, token.address, user.address, {"from": user})
        
 """
   Test revert on fee-on-transfer token rewards addition  

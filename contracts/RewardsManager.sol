@@ -239,7 +239,7 @@ contract RewardsManager is ReentrancyGuard {
         // To avoid re-entrancy we always change state before sending
         // Also this function needs to have re-entancy checks as well
         for(uint256 i; i < epochLength; ) {
-            claimReward(epochsToClaim[i], vaults[i], tokens[i], users[i]);
+            claimRewardEmitting(epochsToClaim[i], vaults[i], tokens[i], users[i]);
 
             unchecked {
                 ++i;
@@ -252,7 +252,7 @@ contract RewardsManager is ReentrancyGuard {
     ///     This function is as expensive as it gets
     /// @notice Anyone can claim on behalf of others
     /// @notice Gas savings is fine as public / external matters only when using mem vs calldata for arrays
-    function claimRewardReference(uint256 epochId, address vault, address token, address user) public {
+    function claimRewardReferenceEmitting(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
         accrueUser(epochId, vault, user);
@@ -294,7 +294,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Claim Rewards, without accruing points, saves gas for one-off claims
-    function claimReward(uint256 epochId, address vault, address token, address user) public {
+    function claimRewardEmitting(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
         (uint256 userBalanceAtEpochId, ) = _getBalanceAtEpoch(epochId, vault, user);
@@ -331,7 +331,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Claim Rewards, without accruing points, for non-emitting vaults, saves gas for one-off claims
-    function claimRewardNonEmitting(uint256 epochId, address vault, address token, address user) public {
+    function claimReward(uint256 epochId, address vault, address token, address user) public {
         require(epochId < currentEpoch()); // dev: !can only claim ended epochs
 
         // Get balance for this epoch

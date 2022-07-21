@@ -29,7 +29,7 @@ def test_full_deposit_one_user(initialized_contract, user, real_vault, token):
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, real_vault, token, user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, token, user)
 
   ## Verify you got the entire amount
   assert token.balanceOf(user) == initial_reward_balance + REWARD_AMOUNT
@@ -52,8 +52,8 @@ def test_full_deposit_one_user_transfer_to_second(initialized_contract, user, re
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, real_vault, token, user)
-  initialized_contract.claimReward(EPOCH, real_vault, token, second_user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, token, user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, token, second_user)
 
   ## Sum of both got the entire amount
   assert approx(token.balanceOf(user) + token.balanceOf(second_user), initial_reward_balance + REWARD_AMOUNT, 1)
@@ -83,8 +83,8 @@ def test_basic_with_vault_emitted(initialized_contract, user, real_vault, token,
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, deployer)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, deployer)
 
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
   assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT, 1)
@@ -118,8 +118,8 @@ def test_basic_with_vault_emitted_with_empty_epoch(initialized_contract, user, r
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, deployer)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, deployer)
 
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
   assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT, 1)
@@ -155,10 +155,10 @@ def test_basic_with_vault_two_epochs_of_reward(initialized_contract, user, real_
   chain.mine()
 
   ## Claim rewards here
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, user)
-  initialized_contract.claimReward(EPOCH, real_vault, real_vault, deployer)
-  initialized_contract.claimReward(EPOCH + 1, real_vault, real_vault, user)
-  initialized_contract.claimReward(EPOCH + 1, real_vault, real_vault, deployer)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, user)
+  initialized_contract.claimRewardEmitting(EPOCH, real_vault, real_vault, deployer)
+  initialized_contract.claimRewardEmitting(EPOCH + 1, real_vault, real_vault, user)
+  initialized_contract.claimRewardEmitting(EPOCH + 1, real_vault, real_vault, deployer)
 
   ## Verify that all rewards were distributed (minus 1 approx due to rounding)
   assert approx(real_vault.balanceOf(user) + real_vault.balanceOf(deployer), initial_reward_balance + REWARD_AMOUNT * 2, 1)

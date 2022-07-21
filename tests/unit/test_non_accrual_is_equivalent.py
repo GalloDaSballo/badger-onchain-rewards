@@ -48,7 +48,7 @@ def test_equivalence_points_reference_and_getUserNextEpochInfo(initialized_contr
   chain.snapshot()
 
   ## Claim rewards here
-  tx = initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user)
+  tx = initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault, token, user)
 
   final_balance_reference = token.balanceOf(user)
   expected_final_balance = initial_reward_balance + REWARD_AMOUNT
@@ -63,7 +63,7 @@ def test_equivalence_points_reference_and_getUserNextEpochInfo(initialized_contr
   ## Check balances at end are same
   chain.revert()
 
-  tx = initialized_contract.claimRewardReference(EPOCH, fake_vault, token, user)
+  tx = initialized_contract.claimRewardReferenceEmitting(EPOCH, fake_vault, token, user)
 
   assert token.balanceOf(user) == expected_final_balance
   assert token.balanceOf(user) == final_balance_reference

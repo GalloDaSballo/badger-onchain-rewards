@@ -43,7 +43,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_bulk_function_no_optimizati
 
     if(x > 1):
       ## Second User claims every week
-      initialized_contract.claimRewardReference(x-1, fake_vault, token, second_user)
+      initialized_contract.claimRewardReferenceEmitting(x-1, fake_vault, token, second_user)
 
     chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
     chain.mine()
@@ -54,7 +54,7 @@ def test_full_deposit_claim_one_year_of_rewards_with_bulk_function_no_optimizati
 
   ## User 1 claims
   initialized_contract.claimBulkTokensOverMultipleEpochs(1, 51, fake_vault, [token], user, {"from": user})
-  initialized_contract.claimRewardReference(51, fake_vault, token, second_user)
+  initialized_contract.claimRewardReferenceEmitting(51, fake_vault, token, second_user)
 
   ## Compare balances at end
   delta_one = token.balanceOf(user) - initial_reward_balance
@@ -103,7 +103,7 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
 
     if(x > 1):
       ## Second User claims every week
-      initialized_contract.claimRewardReference(x-1, real_vault, real_vault, second_user)
+      initialized_contract.claimRewardReferenceEmitting(x-1, real_vault, real_vault, second_user)
       
       print("real_vault.balanceOf(user)")
       print(real_vault.balanceOf(user))
@@ -121,7 +121,7 @@ def test_full_deposit_autocompouding_vault(initialized_contract, user, deployer,
 
   ## User 1 claims
   initialized_contract.claimBulkTokensOverMultipleEpochs(1, 51, real_vault, [real_vault], user, {"from": user})
-  initialized_contract.claimRewardReference(51, real_vault, real_vault, second_user) ## Claim last epoch just to be sure
+  initialized_contract.claimRewardReferenceEmitting(51, real_vault, real_vault, second_user) ## Claim last epoch just to be sure
 
   ## Compare balances at end
   delta_one = real_vault.balanceOf(user) - initial_reward_balance
