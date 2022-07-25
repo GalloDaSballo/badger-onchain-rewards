@@ -10,9 +10,10 @@ SECONDS_PER_EPOCH = 604800
 ## TODO: Change totalReward to be a APR with interesting interval, perhaps betwen 1 BPS and 10k%
 TOTAL_REWARD = 100_000 * 10 ** 18 ## 10 k ETH example
 
-def basic_simulation():
+
+def multiple_epoch_simulation():
   """
-    Basic Simulation for handling of self-emitting vaults and their points
+    Simulation for handling of self-emitting vaults and their points, over multiple epochs to check fairness / unfairness of the formula
 
     This is a simplified case where:
       - RewardsManager received the reward token an epoch before
@@ -27,15 +28,17 @@ def basic_simulation():
   points = []
 
   ## Reward will be added here at the 0th entry
-  contract_points = TOTAL_REWARD * SECONDS_PER_EPOCH
-  total_supply += TOTAL_REWARD
+  contract_balance = 3 * TOTAL_REWARD
+  contract_points = contract_balance * SECONDS_PER_EPOCH
+  contract_epoch_points = TOTAL_REWARD * SECONDS_PER_EPOCH
+  total_supply += contract_balance
   total_points += contract_points
 
-  balances.append(TOTAL_REWARD)
+  balances.append(contract_balance)
   points.append(contract_points)
 
   ## Ensure we're adding to 0 entry
-  assert balances[0] == TOTAL_REWARD
+  assert balances[0] == contract_balance
   assert points[0] == contract_points
 
   ## Simulate user balances and points
@@ -85,13 +88,13 @@ def basic_simulation():
     ## TO REDUCE DUST Use Distributive Property
     contract_claimable_tokens = TOTAL_REWARD * contract_points // total_points
 
-    # user_reward_before_contract = TOTAL_REWARD * user_points // total_points
-    # contract_claimable_tokens = TOTAL_REWARD * contract_points // total_points
+    user_reward_before_contract = TOTAL_REWARD * user_points // total_points
+    contract_claimable_tokens = TOTAL_REWARD * contract_points // total_points
     
-    ## Must subtract contract point as contract is removed
-    # user_share_of_contract_points = contract_claimable_tokens * user_points // (total_points - contract_points)
+    # Must subtract contract point as contract is removed
+    user_share_of_contract_points = contract_claimable_tokens * user_points // (total_points - contract_epoch_points)
     
-    # user_total_rewards = user_share_of_contract_points + user_reward_before_contract
+    user_total_rewards = user_share_of_contract_points + user_reward_before_contract
 
     """
       User points = u
@@ -106,9 +109,10 @@ def basic_simulation():
                         = R * (u / (t - c))
     """
 
-    user_total_rewards = TOTAL_REWARD * user_points // (total_points - contract_points)
+    ## Untoggle to use the reduced formula
+    ## user_total_rewards = TOTAL_REWARD * user_points // (total_points - contract_epoch_points)
 
-    user_dust = (TOTAL_REWARD + contract_claimable_tokens) * user_points % total_points
+    user_dust = TOTAL_REWARD * user_points % (total_points - contract_epoch_points)
 
     rewards.append(user_total_rewards)
     dust.append(user_dust)
@@ -168,5 +172,7 @@ def basic_simulation():
 
 
 
+
+
 def main():
-  basic_simulation()
+  multiple_epoch_simulation()
