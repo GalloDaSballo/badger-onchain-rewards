@@ -56,7 +56,7 @@ contract RewardsManager is ReentrancyGuard {
     // NOTE: Must be `immutable`, remove `immutable` for coverage report
     // DEPLOY_TIME allows us to automatically compute epochs
     // Since it's immutable the math is very cheap
-    uint256 public DEPLOY_TIME; 
+    uint256 public immutable DEPLOY_TIME; 
     
     // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
@@ -127,7 +127,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param epochId - the Epoch to accrue, cannot be a future one
     /// @param vault - the vault to accrue
     function accrueVault(uint256 epochId, address vault) public {
-        require(epochId <= currentEpoch()); // dev: !can only accrue up to current epoch
+        require(epochId <= currentEpoch(), "Cannot see the future");
 
         (uint256 supply, bool shouldUpdate) = _getTotalSupplyAtEpoch(epochId, vault);
 
@@ -153,7 +153,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev see {_getVaultTimeLeftToAccrue}
     function getVaultTimeLeftToAccrue (uint256 epochId, address vault) external view returns (uint256) {
-        require(epochId <= currentEpoch()); // dev: no future
+        require(epochId <= currentEpoch(), "Cannot see the future");
         return _getVaultTimeLeftToAccrue(epochId, vault);
     }
 
@@ -189,7 +189,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev see {_getTotalSupplyAtEpoch}
     function getTotalSupplyAtEpoch(uint256 epochId, address vault) external view returns (uint256, bool) {
-        require(epochId <= currentEpoch()); // dev: no time travel
+        require(epochId <= currentEpoch(), "Cannot see the future");
         return _getTotalSupplyAtEpoch(epochId, vault);
     }
 
@@ -262,9 +262,9 @@ contract RewardsManager is ReentrancyGuard {
         uint256 vaultLength = vaults.length;
         uint256 tokensLength = tokens.length;
 
-        require(usersLength == epochLength); // dev: length mismatch
-        require(epochLength == vaultLength); // dev: length mismatch
-        require(vaultLength == tokensLength); // dev: length mismatch
+        require(usersLength == epochLength, "length mismatch");
+        require(epochLength == vaultLength, "length mismatch");
+        require(vaultLength == tokensLength, "length mismatch");
 
         // Given an epoch and a vault
         // I have to accrue until end
@@ -291,7 +291,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param token - Which token reward to claim
     /// @param user - Who to claim for
     function claimRewardReference(uint256 epochId, address vault, address token, address user) public {
-        require(epochId < currentEpoch()); // dev: !can only claim ended epochs
+        require(epochId < currentEpoch(), "only ended epochs");
 
         accrueUser(epochId, vault, user);
         accrueUser(epochId, vault, address(this)); // Accrue this contract points
@@ -337,7 +337,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param token - Which token reward to claim
     /// @param user - Who to claim for
     function claimReward(uint256 epochId, address vault, address token, address user) public {
-        require(epochId < currentEpoch()); // dev: !can only claim ended epochs
+        require(epochId < currentEpoch(), "only ended epochs");
 
         (uint256 userBalanceAtEpochId, ) = _getBalanceAtEpoch(epochId, vault, user);
 
@@ -356,7 +356,7 @@ contract RewardsManager is ReentrancyGuard {
         UserInfo memory thisContractInfo = _getUserNextEpochInfo(epochId, vault, address(this), startingContractBalance);
 
         // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-        require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
+        require(pointsWithdrawn[epochId][vault][user][token] == 0, "already claimed");
 
         // We got some stuff left // Use ratio to calculate what we got left
         uint256 totalAdditionalReward = rewards[epochId][vault][token];
@@ -378,7 +378,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param token - Which token reward to claim
     /// @param user - Who to claim for
     function claimRewardNonEmitting(uint256 epochId, address vault, address token, address user) public {
-        require(epochId < currentEpoch()); // dev: !can only claim ended epochs
+        require(epochId < currentEpoch(), "only ended epochs");
 
         // Get balance for this epoch
         (uint256 userBalanceAtEpochId, ) = _getBalanceAtEpoch(epochId, vault, user);
@@ -396,7 +396,7 @@ contract RewardsManager is ReentrancyGuard {
         VaultInfo memory vaultInfo = _getVaultNextEpochInfo(epochId, vault, vaultSupplyAtEpochId);
 
         // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-        require(pointsWithdrawn[epochId][vault][user][token] == 0); // dev: You already claimed during the epoch, cannot optimize
+        require(pointsWithdrawn[epochId][vault][user][token] == 0, "already claimed");
 
         // We got some stuff left // Use ratio to calculate what we got left
         uint256 totalAdditionalReward = rewards[epochId][vault][token];
@@ -430,9 +430,9 @@ contract RewardsManager is ReentrancyGuard {
         // This one is without gas refunds, 
         // if you are confident in the fact that you're claiming all the tokens for a vault
         // you may as well use the optimized version to save more gas
-        require(epochStart <= epochEnd); // dev: epoch math wrong
+        require(epochStart <= epochEnd, "wrong math");
         uint256 tokensLength = tokens.length;
-        require(epochEnd < currentEpoch()); // dev: Can't claim if not expired
+        require(epochEnd < currentEpoch(), "only ended epochs");
         _requireNoDuplicates(tokens);
 
         uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
@@ -462,7 +462,7 @@ contract RewardsManager is ReentrancyGuard {
                 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
                 // To allow for this I could loop and check they are all zero, which would allow for further optimization
-                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0); // dev: You already accrued during the epoch, cannot optimize
+                require(pointsWithdrawn[epochId][vault][user][tokens[i]] == 0, "already claimed");
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
@@ -503,15 +503,15 @@ contract RewardsManager is ReentrancyGuard {
     /// @param total - Total amount to send, must be divisible by `totalEpochs`
     ///     `total` / `totalEpochs` = amount for each epoch 
     function addBulkRewardsLinearly(uint256 epochStart, uint256 epochEnd, address vault, address token, uint256 total) external nonReentrant {
-        require(epochStart >= currentEpoch()); // dev: Cannot add in the past
-        require(epochEnd >= epochStart); // dev: no epochs
-        require(vault != address(0)); // dev: dork
+        require(epochStart >= currentEpoch(), "Cannot add to past");
+        require(epochEnd >= epochStart, "Must add at least one epoch");
+        require(vault != address(0), "youtu.be/F3L376eH09Q");
         uint256 totalEpochs;
         unchecked {
             totalEpochs = epochEnd - epochStart + 1;
         }
         // Amount needs to be equally divisible per epoch, for custom additions, use this and then add more single rewards
-        require(total % totalEpochs == 0); // dev: multiple
+        require(total % totalEpochs == 0, "must divide evenly");
         uint256 perEpoch = total / totalEpochs;
 
         // Transfer Token in, must receive the exact total
@@ -519,7 +519,7 @@ contract RewardsManager is ReentrancyGuard {
         IERC20(token).safeTransferFrom(msg.sender, address(this), total);
         uint256 endBalance = IERC20(token).balanceOf(address(this));
 
-        require(endBalance - startBalance == total); // dev: no weird fees bruh
+        require(endBalance - startBalance == total, "no feeOnTransfer");
 
         // Give each epoch an equal amount of reward
         for(uint256 epochId = epochStart; epochId <= epochEnd; ) {
@@ -546,14 +546,14 @@ contract RewardsManager is ReentrancyGuard {
     /// @param token - Token you want to add as reward
     /// @param amounts - Amounts, for each epoch to be added
     function addBulkRewards(uint256 epochStart, uint256 epochEnd, address vault, address token, uint256[] calldata amounts) external nonReentrant {
-        require(epochStart >= currentEpoch()); // dev: Cannot add in the past
-        require(epochEnd >= epochStart); // dev: no epochs
-        require(vault != address(0)); // dev: dork
+        require(epochStart >= currentEpoch(), "Cannot add to past");
+        require(epochEnd >= epochStart, "Must add one epoch");
+        require(vault != address(0), "youtu.be/F3L376eH09Q");
         uint256 totalEpochs;
         unchecked {
             totalEpochs = epochEnd - epochStart + 1;
         }
-        require(totalEpochs == amounts.length); // dev: Length Mismatch
+        require(totalEpochs == amounts.length, "length mismatch");
 
         // Calculate total for one-off transfer
         uint256 total;
@@ -568,7 +568,7 @@ contract RewardsManager is ReentrancyGuard {
         IERC20(token).safeTransferFrom(msg.sender, address(this), total);
         uint256 endBalance = IERC20(token).balanceOf(address(this));
 
-        require(endBalance - startBalance == total); // dev: no weird fees bruh
+        require(endBalance - startBalance == total, "no feeOnTransfer");
 
         // Add specific amount for each epoch
         for(uint256 epochId = epochStart; epochId <= epochEnd; ) {
@@ -596,8 +596,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @param token - Which token are you adding as reward
     /// @param amount - How much of the token are you adding?
     function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
-        require(epochId >= currentEpoch()); // dev: cannot add to past
-        require(vault != address(0)); // dev: dork
+        require(epochId >= currentEpoch(), "Cannot add to past");
+        require(vault != address(0), "youtu.be/F3L376eH09Q");
 
         // Check change in balance to support `feeOnTransfer` tokens as well
         uint256 startBalance = IERC20(token).balanceOf(address(this));  
@@ -624,7 +624,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param to - receiver of amount. address(0) represents a withdrawal
     /// @param amount - quantity sent
     function notifyTransfer(address from, address to, uint256 amount) external {
-        require(from != to); // dev: can't transfer to yourself
+        require(from != to, "Cannot transfer to yourself");
         // NOTE: Anybody can call this because it's indexed by msg.sender
         // Vault is msg.sender, and msg.sender cost 1 less gas
 
@@ -707,7 +707,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param vault - address under which you want to accrue
     /// @param user - address you want to accrue
     function accrueUser(uint256 epochId, address vault, address user) public {
-        require(epochId <= currentEpoch()); // dev: !can only accrue up to current epoch
+        require(epochId <= currentEpoch(), "only ended epochs");
 
         (uint256 currentBalance, bool shouldUpdate) = _getBalanceAtEpoch(epochId, vault, user);
 
@@ -744,7 +744,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev see `_getUserTimeLeftToAccrue`
     function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {    
-        require(epochId <= currentEpoch());
+        require(epochId <= currentEpoch(), "Cannot see the future");
         return _getUserTimeLeftToAccrue(epochId, vault, user);
     }
 
@@ -790,7 +790,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev See `_getBalanceAtEpoch`
     function getBalanceAtEpoch(uint256 epochId, address vault, address user) external view returns (uint256, bool) {
-        require(epochId <= currentEpoch());
+        require(epochId <= currentEpoch(), "Cannot see the future");
         return _getBalanceAtEpoch(epochId, vault, user);
     }
     
@@ -886,7 +886,7 @@ contract RewardsManager is ReentrancyGuard {
         uint256 arrLength = arr.length;
         for(uint i; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
             for (uint j = i + 1; j < arrLength; ) {
-                require(arr[i] != arr[j]);
+                require(arr[i] != arr[j], "dup");
 
                 unchecked { ++j; }
             }
@@ -947,7 +947,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev See `_getUserNextEpochInfo`
     function getUserNextEpochInfo(uint256 epochId, address vault, address user, uint256 prevEpochBalance) external view returns (UserInfo memory info) {
-        require(epochId < currentEpoch()); // dev: epoch must be over
+        require(epochId < currentEpoch(), "only ended epochs");
         return _getUserNextEpochInfo(epochId, vault, user, prevEpochBalance);
     }
 
@@ -1026,7 +1026,7 @@ contract RewardsManager is ReentrancyGuard {
 
     /// @dev See `_getVaultNextEpochInfo`
     function getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) external view returns (VaultInfo memory info) {
-        require(epochId < currentEpoch()); // dev: epoch must be over
+        require(epochId < currentEpoch(), "only ended epochs");
         return _getVaultNextEpochInfo(epochId, vault, prevEpochTotalSupply);
     }
 
@@ -1101,9 +1101,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Benchmarked to cost about 670k gas for 1 year, 1 token claimed for 1 vault
     /// @param params see {OptimizedClaimParams}
     function reap(OptimizedClaimParams calldata params) external {
-        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
+        require(params.epochStart <= params.epochEnd, "wrong math");
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
-        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        require(params.epochEnd < currentEpoch(), "only ended epochs");
         _requireNoDuplicates(params.tokens);
 
         // Instead of accruing user and vault, we just compute the values in the loop
@@ -1147,7 +1147,7 @@ contract RewardsManager is ReentrancyGuard {
                 address token = params.tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0, "already claimed");
                 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
@@ -1206,9 +1206,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Benchmarked to cost about 532k gas for 1 year, 1 token claimed for 1 vault
     /// @param params see {OptimizedClaimParams}
     function tear(OptimizedClaimParams calldata params) external {
-        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
+        require(params.epochStart <= params.epochEnd, "wrong math");
         address user = msg.sender; // Pay the extra 3 gas to make code reusable, not sorry
-        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        require(params.epochEnd < currentEpoch(), "only ended epochs");
         _requireNoDuplicates(params.tokens);
 
         // Instead of accruing user and vault, we just compute the values in the loop
@@ -1251,7 +1251,7 @@ contract RewardsManager is ReentrancyGuard {
                 address token = params.tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0, "already claimed");
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
@@ -1316,8 +1316,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @param user Address to run the check for
     /// @return amounts - List of all amounts based on the params
     function getClaimableBulkRewards(OptimizedClaimParams calldata params, address user) external view returns (uint256[] memory amounts) {
-        require(params.epochStart <= params.epochEnd); // dev: epoch math wrong
-        require(params.epochEnd < currentEpoch()); // dev: epoch math wrong 
+        require(params.epochStart <= params.epochEnd, "wrong math");
+        require(params.epochEnd < currentEpoch(), "only ended epochs");
         _requireNoDuplicates(params.tokens);
 
         // Get initial balances
@@ -1352,7 +1352,7 @@ contract RewardsManager is ReentrancyGuard {
                 address token = params.tokens[i];
 
                 // To be able to use the same ratio for all tokens, we need the pointsWithdrawn to all be 0
-                require(pointsWithdrawn[epochId][params.vault][user][token] == 0); // dev: You already accrued during the epoch, cannot optimize
+                require(pointsWithdrawn[epochId][params.vault][user][token] == 0, "already claimed");
 
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];

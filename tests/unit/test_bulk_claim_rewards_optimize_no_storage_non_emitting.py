@@ -175,7 +175,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting_per
   """
       Cannot claim if epoch not ended
   """
-  with brownie.reverts("dev: epoch math wrong"):
+  with brownie.reverts("only ended epochs"):
     initialized_contract.tear([EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 
@@ -194,7 +194,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorageNonEmitting_per
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
 
   ## Which will set `pointsWithdrawn` to non-zero causing revert on the check
-  with brownie.reverts("dev: You already accrued during the epoch, cannot optimize"):
+  with brownie.reverts("already claimed"):
     initialized_contract.tear([CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 

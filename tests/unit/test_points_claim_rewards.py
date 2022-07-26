@@ -112,21 +112,21 @@ def test_you_cant_claim_if_epoch_isnt_over(initialized_contract, user, fake_vaul
   token.approve(initialized_contract, MaxUint256, {"from": user})
   initialized_contract.addReward(EPOCH, fake_vault, token, REWARD_AMOUNT, {"from": user})
 
-  with brownie.reverts("dev: !can only claim ended epochs"):
+  with brownie.reverts("only ended epochs"):
     initialized_contract.claimReward(EPOCH, fake_vault, token, user)
 
 
 def test_revert_cases_for_claimRewards(initialized_contract, user, fake_vault, token):
   EPOCH = initialized_contract.currentEpoch()
   ## 2 Epochs, 1 rest
-  with brownie.reverts("dev: length mismatch"):
+  with brownie.reverts("length mismatch"):
     initialized_contract.claimRewards([EPOCH, EPOCH], [fake_vault], [token], [user])
   ## 2 Vaults, 1 rest
-  with brownie.reverts("dev: length mismatch"):
+  with brownie.reverts("length mismatch"):
     initialized_contract.claimRewards([EPOCH], [fake_vault, fake_vault], [token], [user])
   ## 2 Users, 1 rest
-  with brownie.reverts("dev: length mismatch"):
+  with brownie.reverts("length mismatch"):
     initialized_contract.claimRewards([EPOCH], [fake_vault], [token], [user, user])
   ## 2 tokens, 1 rest
-  with brownie.reverts("dev: length mismatch"):
+  with brownie.reverts("length mismatch"):
     initialized_contract.claimRewards([EPOCH], [fake_vault], [token, token], [user])
