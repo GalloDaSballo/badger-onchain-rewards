@@ -56,7 +56,7 @@ contract RewardsManager is ReentrancyGuard {
     // NOTE: Must be `immutable`, remove `immutable` for coverage report
     // DEPLOY_TIME allows us to automatically compute epochs
     // Since it's immutable the math is very cheap
-    uint256 public immutable DEPLOY_TIME; 
+    uint256 public DEPLOY_TIME; 
     
     // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
@@ -594,7 +594,7 @@ contract RewardsManager is ReentrancyGuard {
     /// @param epochId - Epoch for which to add the reward
     /// @param vault - Which vault are you adding a reward to
     /// @param token - Which token are you adding as reward
-    /// @param amounts - How much of the token are you adding?
+    /// @param amount - How much of the token are you adding?
     function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
         require(epochId >= currentEpoch()); // dev: cannot add to past
         require(vault != address(0)); // dev: dork
@@ -620,9 +620,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice The handling of changes requires accruing points until now
     /// @notice After that, just change the balances
     /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
-    /// @param from
-    /// @param to
-    /// @param amount
+    /// @param from - sender of amount. address(0) represents a deposit
+    /// @param to - receiver of amount. address(0) represents a withdrawal
+    /// @param amount - quantity sent
     function notifyTransfer(address from, address to, uint256 amount) external {
         require(from != to); // dev: can't transfer to yourself
         // NOTE: Anybody can call this because it's indexed by msg.sender
@@ -640,9 +640,9 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev handles a deposit for vault, to address of amount
-    /// @param vault
-    /// @param to
-    /// @param amount
+    /// @param vault - address for which the balance is changing
+    /// @param to - receiver of amount
+    /// @param amount - quantity sent
     function _handleDeposit(address vault, address to, uint256 amount) internal {
         uint256 cachedCurrentEpoch = currentEpoch();
         accrueUser(cachedCurrentEpoch, vault, to);
@@ -658,9 +658,9 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev handles a withdraw for vault, from address of amount
-    /// @param vault
-    /// @param from
-    /// @param amount
+    /// @param vault - address for which the balance is changing
+    /// @param from - receiver of amount
+    /// @param amount - quantity sent
     function _handleWithdrawal(address vault, address from, uint256 amount) internal {
         uint256 cachedCurrentEpoch = currentEpoch();
         accrueUser(cachedCurrentEpoch, vault, from);
@@ -675,10 +675,10 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev handles a transfer for vault, from address to address of amount
-    /// @param vault
-    /// @param from
-    /// @param to
-    /// @param amount
+    /// @param vault - address for which the balance is changing
+    /// @param from - sender of amount
+    /// @param to - receiver of amount
+    /// @param amount - quantity sent
     function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
         uint256 cachedCurrentEpoch = currentEpoch();
         // Accrue points for from, so they get rewards
@@ -703,9 +703,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Figure out the time passed since last accrue (max is start of epoch)
     /// @notice Figure out their points (their current balance) (before we update)
     /// @notice Just multiply the points * the time, those are the points they've earned
-    /// @param epochId
-    /// @param vault
-    /// @param user
+    /// @param epochId - id of epoch that you want to accrue points for
+    /// @param vault - address under which you want to accrue
+    /// @param user - address you want to accrue
     function accrueUser(uint256 epochId, address vault, address user) public {
         require(epochId <= currentEpoch()); // dev: !can only accrue up to current epoch
 
@@ -753,9 +753,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Invariant -> Never changed means full duration
     /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
     /// @notice Will return a nonsense value if you query for an epoch in the future 
-    /// @param epochId
-    /// @param vault
-    /// @param user
+    /// @param epochId - id of epoch for which you want to know the time left for point accrual
+    /// @param vault - vault you want the info for
+    /// @param user - address you want the info for
     function _getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) internal view returns (uint256) {
         uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
         Epoch memory epochData = getEpochData(epochId);
@@ -800,9 +800,9 @@ contract RewardsManager is ReentrancyGuard {
     /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
     /// @notice we return whether to update because the function has to figure that out
     /// comparing the storage value after the return value is a waste of a SLOAD
-    /// @param epochId
-    /// @param vault
-    /// @param user
+    /// @param epochId - id of epoch at which time you want to know the balance of
+    /// @param vault - vault for which you are checking the balance of
+    /// @param user - address you want the balance of
     function _getBalanceAtEpoch(uint256 epochId, address vault, address user) internal view returns (uint256, bool) {
         // Time Last Known Balance has changed
         if(lastUserAccrueTimestamp[epochId][vault][user] != 0 ) {
@@ -852,8 +852,8 @@ contract RewardsManager is ReentrancyGuard {
     /// === EPOCH HANDLING ==== ///
 
     /// @dev Returns the current epoch
-    /// @return uint256 - Current epoch
     /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
+    /// @return uint256 - Current epoch
     function currentEpoch() public view returns (uint256) {
         unchecked {
             return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
@@ -861,8 +861,8 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Returns the start and end times for the Epoch
+    /// @param epochId - The epochId you want info of
     /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
-    /// @param epochId
     function getEpochData(uint256 epochId) public view returns (Epoch memory) {
         unchecked {
             uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
@@ -872,7 +872,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Returns the EpochData for a givenEpoch
-    /// @param epochId
+    /// @param epochId - The epochId you want info of
     /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
     function epochs(uint256 epochId) external view returns (Epoch memory) {
         return getEpochData(epochId);
@@ -881,7 +881,7 @@ contract RewardsManager is ReentrancyGuard {
     /// === Utils === ///
 
     /// @dev Checks that there's no duplicate addresses
-    /// @param arr
+    /// @param arr - List to check for dups
     function _requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
         for(uint i; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
@@ -896,8 +896,8 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     /// @dev Math utility to obtain the minimum out of two numbers
-    /// @param a
-    /// @param b
+    /// @param a - not b
+    /// @param b - not a
     /// @return uint256 - Minimum number out of two inputs
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
@@ -956,11 +956,11 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Requires `prevEpochBalance` to allow optimized claims
     ///     If an accrual happened during `epochId` it will read data from storage (expensive)
     ///     If no accrual happened (optimistic case), it will use `prevEpochBalance` to compute the rest of the values
-    /// @param epochId
-    /// @param vault
-    /// @param user
-    /// @param prevEpochBalance
-    /// @return info
+    /// @param epochId - epoch for which to get info
+    /// @param vault - address that indexes the info
+    /// @param user - address for which to get the info of
+    /// @param prevEpochBalance - previous known balance, to save gas
+    /// @return info - see {UserInfo}
     function _getUserNextEpochInfo(uint256 epochId, address vault, address user, uint256 prevEpochBalance) internal view returns (UserInfo memory info) {
         // Ideal scenario is no accrue, no balance change so that we can calculate all from memory without checking storage
 
@@ -1035,10 +1035,10 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice Requires `prevEpochTotalSupply` to allow optimized math in case of non-accrual
     ///     If an accrual happened during `epochId` it will read data from storage (expensive)
     ///     If no accrual happened (optimistic case), it will use `prevEpochTotalSupply` to compute the rest of the values
-    /// @param epochId
-    /// @param vault
-    /// @param prevEpochTotalSupply
-    /// @return info
+    /// @param epochId - epochId for which to get the info
+    /// @param vault - address of which you want the info of
+    /// @param prevEpochTotalSupply - previously known total supply, to save gas
+    /// @return info - see {VaultInfo}
     function _getVaultNextEpochInfo(uint256 epochId, address vault, uint256 prevEpochTotalSupply) internal view returns (VaultInfo memory info) {
         
         // Time left to Accrue //
