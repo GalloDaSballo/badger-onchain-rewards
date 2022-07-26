@@ -63,6 +63,18 @@ contract RewardsManager is ReentrancyGuard {
         uint256 endTimestamp;
     }
 
+    // Used to track reward amounts and the accrual of rewards that these rewards have been earning
+    //  To fairly distribute second-order rewards as a ton of tokens will sit in this contract
+    struct RewardInfo {
+        uint256 total; // Amount of reward for this epoch
+        uint256 lastAccruedTimestamp; // Last time the amount changed; 0 or value before epoch.startTimestamp means you don't need to do extra math
+        uint256 pointsAtLastAccrue; // Cumulative points, where points = avgBalance * time, just like for users
+    }
+
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
+    mapping(uint256 => mapping(address => mapping(address => RewardInfo))) public rewardsInfo; // rewardsInfo[epochId][vaultAddress][tokenAddress]
+
+
     mapping(uint256 => mapping(address => mapping(address => uint256))) public points; // Calculate points per each epoch - points[epochId][vaultAddress][userAddress]
     mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; // Given point for epoch how many where withdrawn by user? - pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
     
@@ -76,8 +88,6 @@ contract RewardsManager is ReentrancyGuard {
     // User share of token X is equal to tokensForEpoch * points[epochId][vaultId][userAddress] / totalPoints[epochId][vaultAddress]
     // You accrue one point per second for each second you are in the vault
 
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
-    
     // EpochId for Transfer is implied by block.timestamp (and can be fetched there)
     event Transfer(address indexed vault, address indexed from, address indexed to, uint256 amount);
 
@@ -530,7 +540,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @notice The typical use case is for this contract to receive certain rewards that would be sent to the badgerTree
     /// @notice nonReentrant because tokens could inflate rewards, this would only apply to the specific token, see reports for more
     function addReward(uint256 epochId, address vault, address token, uint256 amount) external nonReentrant {
-        require(epochId >= currentEpoch()); // dev: cannot add to past
+        uint256 cachedCurrentEpoch = currentEpoch();
+        require(epochId >= cachedCurrentEpoch); // dev: cannot add to past
         require(vault != address(0)); // dev: dork
 
         // Check change in balance to support `feeOnTransfer` tokens as well
@@ -545,8 +556,48 @@ contract RewardsManager is ReentrancyGuard {
             rewards[epochId][vault][token] += diff;
             // TODO: Refactor all Rewards to the Struct Below
             // TODO: Update so that adding a reward will accrue and stuff
-            rewardsInfo[epochId][vault][token] = RewardInfo(diff, block.timestamp, 0);
+            // rewardsInfo[epochId][vault][token] = RewardInfo(diff, block.timestamp, 0);
         }
+
+
+        // // struct RewardInfo {
+        // //     uint256 total; // Amount of reward for this epoch
+        // //     uint256 lastAccruedTimestamp; // Last time the amount changed; 0 or value before epoch.startTimestamp means you don't need to do extra math
+        // //     uint256 pointsAtLastAccrue; // Cumulative points, where points = avgBalance * time, just like for users
+        // // }
+
+        // RewardInfo memory rewardInfo = rewardsInfo[epochId][vault][token];
+
+        // // TODO: Refactor all Rewards to the Struct Below
+        // // TODO: Update so that adding a reward will accrue and stuff
+        // if(epoch == cachedCurrentEpoch) {
+        //     // Need to deal with accrual of this epoch reward points
+
+        //     // Only if non-zero else we get huge number
+        //     if(rewardInfo.lastAccruedTimestamp == 0) {
+        //         // Compute points from start of epoch till now
+        //     } else {
+        //         // Sanitize lastAccruedTimestamp // MAYBE REMOVABLE
+        //         // And then check for time spent in epoch
+        //         // pointsAtLastAccrue += block.timestamp - lastAccruedTimestamp
+        //     }
+            
+
+        // } else {
+        //     // Just add amounts, points are zero
+                    
+
+        // // Only accrue if in this epoch, as you don't need to accrue for future epochs
+
+        // uint256 totalNewPoints = oldRewardInfo.pointsAtLastAccrue + 
+            
+        // rewardsInfo[epochId][vault][token] = RewardInfo(diff, block.timestamp, 0);
+        // }
+
+        // rewardsInfo[epochId][vault][token] = rewardInfo;
+
+
+
 
         emit AddReward(epochId, vault, token, diff, msg.sender);
     }
@@ -1159,7 +1210,7 @@ contract RewardsManager is ReentrancyGuard {
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][params.vault][token];
 
-                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / (vaultInfo.vaultEpochTotalPoints - thisContractInfo.userEpochTotalPoints);
+                amounts[i] += totalAdditionalReward * userInfo.userEpochTotalPoints / vaultInfo.vaultEpochTotalPoints;
 
                 unchecked { ++i; }
             }

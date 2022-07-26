@@ -9,7 +9,7 @@ MIN_SHARES = 1_000 ## Min shares per user
 SECONDS_PER_EPOCH = 604800
 
 REWARD_PER_EPOCH = 10_000 * 10 ** SHARES_DECIMALS ## 10 k ETH example
-USERS_RANGE = 1000
+USERS_RANGE = 100
 USERS_MIN = 3
 
 def simple_users_sim():
@@ -17,18 +17,27 @@ def simple_users_sim():
   number_of_epochs = int(random() * EPOCHS_RANGE) + EPOCHS_MIN
   number_of_users = int(random() * USERS_RANGE) + USERS_MIN
 
+  total_user_deposits = 0
+
   claiming = [] ## Is the user strat to claim each week
   claimers = 0
+  initial_balances = []
   balances = []
   points = []
   total_supply = 0
   total_points = 0
+  claimed = [] ## How much did each user get
   for user in range(number_of_users):
     is_claiming = random() >= 0.5
     claimers += 1 if is_claiming else 0
     claiming.append(is_claiming)
     balance = int(random() * RANGE) + MIN_SHARES
     balances.append(balance)
+
+
+    initial_balances.append(balance)
+    total_user_deposits += balance
+    claimed.append(0)
 
     user_points = balance * SECONDS_PER_EPOCH
     points.append(user_points)
@@ -82,6 +91,8 @@ def simple_users_sim():
       points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
       balances[user] += user_total_rewards_fair 
 
+      claimed[user] += user_total_rewards_fair
+
       print("user_total_rewards_fair")
       print(user_total_rewards_fair)
       print("user_total_rewards_dust")
@@ -90,15 +101,15 @@ def simple_users_sim():
       total_dust += user_total_rewards_dust
       total_claimed_per_epoch[epoch] += user_total_rewards_fair
     
-    ## Subtract points at end of epoch
+    ## Subtract points at end of epoch
     contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
   
   ## After the weekly claimers sim, reset
   contract_points = cached_contract_points
 
 
-  ## Simulation of user claiming all epochs at end through new math
-  ## They will use the updated balances, without reducing them (as they always claim at end of entire period)
+  ## Simulation of user claiming all epochs at end through new math
+  ## They will use the updated balances, without reducing them (as they always claim at end of entire period)
   for epoch in range(number_of_epochs):
     for user in range(number_of_users):
       ## Skip for claimers // Already done above
@@ -127,6 +138,8 @@ def simple_users_sim():
       ## Add new rewards to user points for next epoch
       points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
       balances[user] += user_total_rewards_fair 
+
+      claimed[user] += user_total_rewards_fair
 
       print("user_total_rewards_fair")
       print(user_total_rewards_fair)
@@ -161,6 +174,21 @@ def simple_users_sim():
 
   print("Percent distributed over dusted")
   print((total_rewards - total_claimed) / total_rewards)
+
+  
+  ## 2 things about fairness
+  ## Consistency -> Predictable unfairness is better than unpredictable fairness as it can be gamed to user advantage
+  ## Always rounding down -> Any round up will break the accounting, it's extremely important we are "fair" but "stingy" in never giving more than what's correct
+
+  for user in range(number_of_users):
+    print("User %s", user)
+    print("Deposit Ratio")
+    print(initial_balances[user] / total_user_deposits * 100)
+    print("Rewards Ratio")
+    print(claimed[user] / total_rewards * 100)
+
+
+  ## 
 
 
 def main():
