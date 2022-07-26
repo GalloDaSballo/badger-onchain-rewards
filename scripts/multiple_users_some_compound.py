@@ -102,10 +102,10 @@ def simple_users_sim():
       total_claimed_per_epoch[epoch] += user_total_rewards_fair
     
     ## Subtract points at end of epoch
-    contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
+    # contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
   
   ## After the weekly claimers sim, reset
-  contract_points = cached_contract_points
+  # contract_points = cached_contract_points
 
 
   ## Simulation of user claiming all epochs at end through new math
@@ -148,7 +148,8 @@ def simple_users_sim():
       total_claimed += user_total_rewards_fair
       total_dust += user_total_rewards_dust
     
-    contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
+    ## At end of current epoch, subtract points claimed by claimers from previous loop (weekly claimers)
+    # contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
 
 
   print("number_of_users")
@@ -186,6 +187,9 @@ def simple_users_sim():
     print(initial_balances[user] / total_user_deposits * 100)
     print("Rewards Ratio")
     print(claimed[user] / total_rewards * 100)
+  
+  print("Percent distributed over dusted")
+  print((total_rewards - total_claimed) / total_rewards)
 
 
   ## 
