@@ -9,8 +9,15 @@ MIN_SHARES = 1_000 ## Min shares per user
 SECONDS_PER_EPOCH = 604800
 
 REWARD_PER_EPOCH = 10_000 * 10 ** SHARES_DECIMALS ## 10 k ETH example
-USERS_RANGE = 100
+USERS_RANGE = 10
 USERS_MIN = 3
+
+SHOULD_PRINT = False
+
+def print_if(v):
+  if SHOULD_PRINT:
+    print(v)
+  
 
 def simple_users_sim():
 
@@ -57,124 +64,149 @@ def simple_users_sim():
   total_claimed = 0
 
   cached_contract_points = contract_points
-  ## SETUP total_claimed_per_epoch
-  total_claimed_per_epoch = []
+
+  ## SETUP total_points_claimed_per_epoch
+  total_points_claimed_per_epoch = []
 
   for epoch in range(number_of_epochs):
-    total_claimed_per_epoch.append(0)
+    total_points_claimed_per_epoch.append(0)
+
 
   for epoch in range(number_of_epochs):
+    ## Divisor for this epoch
+    ## Equivalent to divisor = (total_points - (contract_points - contract_points_per_epoch * epoch))
+    divisor = (total_points - contract_points + contract_points_per_epoch * epoch)
+
     for user in range(number_of_users):
       ## Skip for non-claimers
       if not (claiming[user]):
         continue
       
-      print("User percent of total")
-      print(points[user] / total_points * 100)
+      print_if("User percent of total")
+      print_if(points[user] / total_points * 100)
 
       user_total_rewards_unfair = REWARD_PER_EPOCH * points[user] // total_points
       user_dust_unfair = REWARD_PER_EPOCH * points[user] % total_points
 
-      print("user_total_rewards_unfair")
-      print(user_total_rewards_unfair)
-      print("user_dust_unfair")
-      print(user_dust_unfair)
+      print_if("user_total_rewards_unfair")
+      print_if(user_total_rewards_unfair)
+      print_if("user_dust_unfair")
+      print_if(user_dust_unfair)
 
-      divisor = (total_points - (contract_points - contract_points_per_epoch * epoch))
 
       user_total_rewards_fair = REWARD_PER_EPOCH * points[user] // divisor
       user_total_rewards_dust = REWARD_PER_EPOCH * points[user] % divisor
 
 
-      temp_user_points = points[user]
+      claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
       ## Add new rewards to user points for next epoch
-      points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
+      points[user] += claimed_points
       balances[user] += user_total_rewards_fair 
 
       claimed[user] += user_total_rewards_fair
 
-      print("user_total_rewards_fair")
-      print(user_total_rewards_fair)
-      print("user_total_rewards_dust")
-      print(user_total_rewards_dust)
+      print_if("user_total_rewards_fair")
+      print_if(user_total_rewards_fair)
+      print_if("user_total_rewards_dust")
+      print_if(user_total_rewards_dust)
       total_claimed += user_total_rewards_fair
       total_dust += user_total_rewards_dust
-      total_claimed_per_epoch[epoch] += user_total_rewards_fair
+      total_points_claimed_per_epoch[epoch] += claimed_points
     
     ## Subtract points at end of epoch
-    # contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
+    contract_points -= total_points_claimed_per_epoch[epoch]
+
+    ## integrity test
+    acc = 0
+    for user in range(number_of_users):
+      acc += points[user]
+    
+    assert acc + contract_points == total_points
+
+
+  """
+    Non-Claimers test / BROKEN
+  """
   
   ## After the weekly claimers sim, reset
-  # contract_points = cached_contract_points
-
+  contract_points = cached_contract_points
 
   ## Simulation of user claiming all epochs at end through new math
   ## They will use the updated balances, without reducing them (as they always claim at end of entire period)
   for epoch in range(number_of_epochs):
+    ## Equivalent to divisor = (total_points - (contract_points - contract_points_per_epoch * epoch))
+    divisor = (total_points - (contract_points) + contract_points_per_epoch * epoch)
+
     for user in range(number_of_users):
       ## Skip for claimers // Already done above
       if (claiming[user]):
         continue
       
-      print("User percent of total")
-      print(points[user] / total_points * 100)
+      print_if("User percent of total")
+      print_if(points[user] / total_points * 100)
 
       user_total_rewards_unfair = REWARD_PER_EPOCH * points[user] // total_points
       user_dust_unfair = REWARD_PER_EPOCH * points[user] % total_points
 
-      print("user_total_rewards_unfair")
-      print(user_total_rewards_unfair)
-      print("user_dust_unfair")
-      print(user_dust_unfair)
-
-      divisor = (total_points - (contract_points - contract_points_per_epoch * epoch))
+      print_if("user_total_rewards_unfair")
+      print_if(user_total_rewards_unfair)
+      print_if("user_dust_unfair")
+      print_if(user_dust_unfair)
 
       user_total_rewards_fair = REWARD_PER_EPOCH * points[user] // divisor
       user_total_rewards_dust = REWARD_PER_EPOCH * points[user] % divisor
 
-      # contract_points -= user_total_rewards_fair * REWARD_PER_EPOCH
-
-      temp_user_points = points[user]
+      claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
       ## Add new rewards to user points for next epoch
-      points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
+      points[user] += claimed_points
       balances[user] += user_total_rewards_fair 
 
       claimed[user] += user_total_rewards_fair
 
-      print("user_total_rewards_fair")
-      print(user_total_rewards_fair)
-      print("user_total_rewards_dust")
-      print(user_total_rewards_dust)
+      print_if("user_total_rewards_fair")
+      print_if(user_total_rewards_fair)
+      print_if("user_total_rewards_dust")
+      print_if(user_total_rewards_dust)
       total_claimed += user_total_rewards_fair
       total_dust += user_total_rewards_dust
     
     ## At end of current epoch, subtract points claimed by claimers from previous loop (weekly claimers)
-    # contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
+    ## Subtract points at end of epoch
+    # contract_points -= total_points_claimed_per_epoch[epoch]
+
+    ## integrity test
+    acc = 0
+    for user in range(number_of_users):
+      acc += points[user]
+    print("acc + contract_points == total_points")
+    print(acc + contract_points)
+    print(total_points)
+    assert acc + contract_points == total_points
 
 
-  print("number_of_users")
-  print(number_of_users)
+  print_if("number_of_users")
+  print_if(number_of_users)
 
-  print("claimers")
-  print(claimers)
+  print_if("claimers")
+  print_if(claimers)
 
-  print("total_rewards")
-  print(total_rewards)
+  print_if("total_rewards")
+  print_if(total_rewards)
 
-  print("total_dust points")
-  print(total_dust)
+  print_if("total_dust points")
+  print_if(total_dust)
 
-  print("total_claimed")
-  print(total_claimed)
+  print_if("total_claimed")
+  print_if(total_claimed)
 
-  print("total epochs")
-  print(number_of_epochs)
+  print_if("total epochs")
+  print_if(number_of_epochs)
 
-  print("actual dust rewards")
-  print(abs(total_rewards - total_claimed))
+  print_if("actual dust rewards")
+  print_if(abs(total_rewards - total_claimed))
 
-  print("Percent distributed over dusted")
-  print((total_rewards - total_claimed) / total_rewards)
+  print_if("Percent distributed over dusted")
+  print_if((total_rewards - total_claimed) / total_rewards)
 
   
   ## 2 things about fairness
@@ -182,18 +214,35 @@ def simple_users_sim():
   ## Always rounding down -> Any round up will break the accounting, it's extremely important we are "fair" but "stingy" in never giving more than what's correct
 
   for user in range(number_of_users):
-    print("User %s", user)
-    print("Deposit Ratio")
-    print(initial_balances[user] / total_user_deposits * 100)
-    print("Rewards Ratio")
-    print(claimed[user] / total_rewards * 100)
+    print_if("User")
+    print_if(user)
+    print_if("Deposit Ratio")
+    print_if(initial_balances[user] / total_user_deposits * 100)
+    print_if("Rewards Ratio")
+    print_if(claimed[user] / total_rewards * 100)
   
-  print("Percent distributed over dusted")
-  print((total_rewards - total_claimed) / total_rewards)
+  print_if("Percent distributed over dusted")
+  print_if((total_rewards - total_claimed) / total_rewards)
+
+  return (total_rewards - total_claimed) / total_rewards
 
 
   ## 
 
+ROUNDS = 1
 
 def main():
-  simple_users_sim()
+  fair_count = 0
+  for x in range(ROUNDS):
+    res = simple_users_sim()
+    if res < 1e-18:
+      fair_count += 1
+    else:
+      print("Unfair")
+      print(res)
+    
+  print("Overall number of passing tests")
+  print(fair_count)
+  print("Overall Percent of passing tests")
+  print(fair_count / ROUNDS * 100)
+      
