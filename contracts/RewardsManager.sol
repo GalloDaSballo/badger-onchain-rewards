@@ -1280,17 +1280,19 @@ contract RewardsManager is ReentrancyGuard {
         unchecked {
 
             // Delete the points for that epoch so nothing more to claim
-            delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
+            // This may be zero and may have already been deleted
+            delete points[params.epochEnd][params.vault][user]; 
 
             // Because we set the accrue timestamp to end of the epoch
-            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set this so user can't claim and their balance here is non-zero / last known
+            // Must set this so user can't claim and their balance here is non-zero / last known
+            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; 
             
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
             lastUserAccrueTimestamp[params.epochStart][params.vault][user] = block.timestamp;
 
             // Port over shares from last check || NOTE: Port over last to mitigate QSP-2
-            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId; 
+            shares[params.epochEnd][params.vault][user] = userBalanceAtEpochId;
         }
 
         // Go ahead and transfer
