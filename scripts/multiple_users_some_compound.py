@@ -168,7 +168,7 @@ def simple_users_sim():
     
     ## At end of current epoch, subtract points claimed by claimers from previous loop (weekly claimers)
     ## Subtract points at end of epoch
-    # contract_points -= total_points_claimed_per_epoch[epoch]
+    contract_points -= total_points_claimed_per_epoch[epoch]
 
     ## integrity test TODO: OUT OF WACK DUE TO HOW WE DO POINTS
     # acc = 0
@@ -221,9 +221,6 @@ def simple_users_sim():
   print_if((total_rewards - total_claimed) / total_rewards)
 
   return (total_rewards - total_claimed) / total_rewards
-
-
-  ## 
 
 ROUNDS = 1000
 
