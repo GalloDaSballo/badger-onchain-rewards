@@ -53,47 +53,58 @@ contract RewardsManager is ReentrancyGuard {
     
     using SafeERC20 for IERC20;
 
-    uint256 public immutable DEPLOY_TIME; // NOTE: Must be `immutable`, remove `immutable` for coverage report
+    // NOTE: Must be `immutable`, remove `immutable` for coverage report
+    // DEPLOY_TIME allows us to automatically compute epochs
+    // Since it's immutable the math is very cheap
+    uint256 public immutable DEPLOY_TIME; 
     
-    uint256 public constant SECONDS_PER_EPOCH = 604800; // One epoch is one week
+    // One epoch is one week
     // This allows to specify rewards on a per week basis, making it easier to interact with contract
-
+    uint256 public constant SECONDS_PER_EPOCH = 604800; 
+    
     /// Used to store the start and end time for a epoch
     struct Epoch {
         uint256 startTimestamp;
         uint256 endTimestamp;
     }
 
-
     // Last timestamp in which vault was accrued - lastAccruedTimestamp[epochId][vaultAddress]
     mapping(uint256 => mapping(address => uint256)) public lastAccruedTimestamp; 
 
-    // Last timestamp at which we accrued user. Used to calculate rewards in epochs with vault interaction - lastUserAccrueTimestamp[epochId][vaultAddress][userAddress]
+    // Last timestamp at which we accrued user. Used to calculate rewards in epochs with vault interaction 
+    // e.g. lastUserAccrueTimestamp[epochId][vaultAddress][userAddress]
     mapping(uint256 => mapping(address => mapping(address => uint256))) public lastUserAccrueTimestamp; 
 
-    // Calculate points per each epoch - shares[epochId][vaultAddress][userAddress]    
+    // Calculate points per each epoch 
+    // e.g. shares[epochId][vaultAddress][userAddress]
     mapping(uint256 => mapping(address => mapping(address => uint256))) public shares; 
 
-    // Sum of all deposits for a vault at an epoch - totalSupply[epochId][vaultAddress]
+    // Sum of all deposits for a vault at an epoch
+    // e.g. totalSupply[epochId][vaultAddress]
     mapping(uint256 => mapping(address => uint256)) public totalSupply; 
 
-    // Calculate points per each epoch - points[epochId][vaultAddress][userAddress]
+    // Calculate points per each epoch
+    // e.g. points[epochId][vaultAddress][userAddress]
     // User share of token X is equal to tokensForEpoch * points[epochId][vaultId][userAddress] / totalPoints[epochId][vaultAddress]
     // You accrue one point per second for each second you are in the vault
     mapping(uint256 => mapping(address => mapping(address => uint256))) public points; 
 
-    // Given point for epoch how many where withdrawn by user? - pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
+    // Given point for epoch how many where withdrawn by user?
+    // e.g. pointsWithdrawn[epochId][vaultAddress][userAddress][rewardToken]
     mapping(uint256 => mapping(address => mapping(address => mapping(address => uint256)))) public pointsWithdrawn; 
     
-    // Sum of all points given for a vault at an epoch - totalPoints[epochId][vaultAddress]
+    // Sum of all points given for a vault at an epoch 
+    // e.g. totalPoints[epochId][vaultAddress]
     mapping(uint256 => mapping(address => uint256)) public totalPoints; 
 
+    // Amount of rewards for the given epoch and vault
     // rewards[epochId][vaultAddress][tokenAddress] = AMOUNT
     mapping(uint256 => mapping(address => mapping(address => uint256))) public rewards; 
     
     // EpochId for Transfer is implied by block.timestamp (and can be fetched there)
     event Transfer(address indexed vault, address indexed from, address indexed to, uint256 amount);
 
+    // Emitted after adding a reward
     event AddReward(uint256 epochId, address indexed vault, address indexed token, uint256 amount, address indexed sender);
 
     // Claiming of rewards may be done in bulk, information will be incomplete, as such we `epochId` is not indexed 
