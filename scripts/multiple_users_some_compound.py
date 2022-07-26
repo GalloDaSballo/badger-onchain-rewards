@@ -46,6 +46,14 @@ def simple_users_sim():
   ## Simulation of user claiming each epoch and contract properly re-computing divisor
   total_dust = 0
   total_claimed = 0
+
+  cached_contract_points = contract_points
+  ## SETUP total_claimed_per_epoch
+  total_claimed_per_epoch = []
+
+  for epoch in range(number_of_epochs):
+    total_claimed_per_epoch.append(0)
+
   for epoch in range(number_of_epochs):
     for user in range(number_of_users):
       ## Skip for non-claimers
@@ -68,6 +76,7 @@ def simple_users_sim():
       user_total_rewards_fair = REWARD_PER_EPOCH * points[user] // divisor
       user_total_rewards_dust = REWARD_PER_EPOCH * points[user] % divisor
 
+
       temp_user_points = points[user]
       ## Add new rewards to user points for next epoch
       points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
@@ -79,8 +88,17 @@ def simple_users_sim():
       print(user_total_rewards_dust)
       total_claimed += user_total_rewards_fair
       total_dust += user_total_rewards_dust
+      total_claimed_per_epoch[epoch] += user_total_rewards_fair
+    
+    ## Subtract points at end of epoch
+    contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
+  
+  ## After the weekly claimers sim, reset
+  contract_points = cached_contract_points
+
 
   ## Simulation of user claiming all epochs at end through new math
+  ## They will use the updated balances, without reducing them (as they always claim at end of entire period)
   for epoch in range(number_of_epochs):
     for user in range(number_of_users):
       ## Skip for claimers // Already done above
@@ -103,6 +121,8 @@ def simple_users_sim():
       user_total_rewards_fair = REWARD_PER_EPOCH * points[user] // divisor
       user_total_rewards_dust = REWARD_PER_EPOCH * points[user] % divisor
 
+      # contract_points -= user_total_rewards_fair * REWARD_PER_EPOCH
+
       temp_user_points = points[user]
       ## Add new rewards to user points for next epoch
       points[user] = temp_user_points + user_total_rewards_fair * SECONDS_PER_EPOCH
@@ -114,6 +134,8 @@ def simple_users_sim():
       print(user_total_rewards_dust)
       total_claimed += user_total_rewards_fair
       total_dust += user_total_rewards_dust
+    
+    contract_points -= total_claimed_per_epoch[epoch] * SECONDS_PER_EPOCH
 
 
   print("number_of_users")
@@ -121,6 +143,9 @@ def simple_users_sim():
 
   print("claimers")
   print(claimers)
+
+  print("total_rewards")
+  print(total_rewards)
 
   print("total_dust points")
   print(total_dust)
