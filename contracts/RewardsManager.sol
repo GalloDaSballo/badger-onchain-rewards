@@ -1306,7 +1306,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
     
-    /// ===== Lens ==== ////
+    /// ===== LENS ==== ////
 
     /// @dev Given OptimizedClaimParams return a list of amounts claimable in bulk, ordered by the tokens
     /// @param params see {OptimizedClaimParams}
