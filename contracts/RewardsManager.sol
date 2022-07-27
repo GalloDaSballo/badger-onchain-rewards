@@ -139,13 +139,6 @@ contract RewardsManager is ReentrancyGuard {
         }
     }
 
-    /// @dev Returns the EpochData for a givenEpoch
-    /// @param epochId - The epochId you want info of
-    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
-    function epochs(uint256 epochId) external view returns (Epoch memory) {
-        return getEpochData(epochId);
-    }
-
     /// === NOTIFY SYSTEM === ///
 
     /// @dev This is used by external contracts to notify a change in balances
