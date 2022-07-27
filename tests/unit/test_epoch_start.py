@@ -16,8 +16,8 @@ def test_epoch_zero_to_one(user):
   ## Epoch is now 1
   assert rewards_contract.currentEpoch() == 1
 
-  onChain_epoch_start = rewards_contract.epochs(rewards_contract.currentEpoch())[0]
-  onChain_epoch_end = rewards_contract.epochs(rewards_contract.currentEpoch())[1]
+  onChain_epoch_start = rewards_contract.getEpochData(rewards_contract.currentEpoch())[0]
+  onChain_epoch_end = rewards_contract.getEpochData(rewards_contract.currentEpoch())[1]
 
   assert onChain_epoch_start == tx.timestamp ## New epoch starts with new TX
   assert onChain_epoch_end == tx.timestamp + rewards_contract.SECONDS_PER_EPOCH() ## And ends exactly at start + SECONDS_PER_EPOCH
@@ -27,7 +27,7 @@ def test_epoch_changes_only_after_epoch_has_ended(initialized_contract, user, de
   assert initialized_contract.currentEpoch() == 1
 
   ## Get info for epoch
-  onChain_epoch_end = initialized_contract.epochs(initialized_contract.currentEpoch())[1]
+  onChain_epoch_end = initialized_contract.getEpochData(initialized_contract.currentEpoch())[1]
 
   
   ## And even if you wait (less than epoch ended), it still the current epoch

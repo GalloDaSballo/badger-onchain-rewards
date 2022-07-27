@@ -136,7 +136,7 @@ def test_claimBulkTokensOverMultipleEpochs_permissions(initialized_contract, use
   """
       Cannot claim if epoch not ended
   """
-  with brownie.reverts("dev: Can't claim if not expired"):
+  with brownie.reverts("only ended epochs"):
     initialized_contract.claimBulkTokensOverMultipleEpochs(EPOCH, CURRENT_EPOCH, fake_vault, [token], user, {"from": user})
 
 
@@ -155,7 +155,7 @@ def test_claimBulkTokensOverMultipleEpochs_permissions(initialized_contract, use
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
 
   ## Which will set `pointsWithdrawn` to non-zero causing revert on the check
-  with brownie.reverts("dev: You already accrued during the epoch, cannot optimize"):
+  with brownie.reverts("already claimed"):
     initialized_contract.claimBulkTokensOverMultipleEpochs(CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token], user, {"from": user})
 
 

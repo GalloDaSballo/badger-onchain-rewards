@@ -44,3 +44,40 @@ Status: Mitigated
 
 ## Potential Attack Vectors to Explore
 - Can you cause the Points to be greater than TotalPoints, allowing to extract more than the rewards for one epoch for one vault?
+
+
+## Formatting
+### Install dependencies
+
+```yarn```
+
+### Run Formatting Tool
+
+```
+yarn format
+```
+
+
+# Notices
+
+## Provably unfair math
+
+The first release of this contract tries to handle self-emitting vaults (vaults that add themselves as rewards to depositors), however the math is provably unfair towards late claimers.
+
+Make sure self-emitting vaults are not used (just auto-compound bruh), and if they are, make sure to claim every week.
+
+## Week is not a week
+
+I kind of gave up on tracking a week across leap years, either way, the contract uses EPOCHS as: `Set Amounts of time`, as such, while the "claiming day" will end up switching every 4 years, the time in between claims will be consistent (as it's tracked in seconds).
+
+For those reasons, please don't send reports about the math not being once per week.
+
+## Epoch time
+
+In a system that is lower yield, higher gas, more predictable (think fixed yield), you could re-use the contract with a SECONDS_PER_EPOCH set to a month or even more.
+
+Negatives:
+- Can claim less often
+
+Positives:
+- Each claim is "bigger" and as such the fixed cost of gas is less noticeable

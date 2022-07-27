@@ -51,20 +51,20 @@ def test_cant_add_rewards_in_the_past(initialized_contract, user, fake_vault, to
   REWARD_AMOUNT = 1e18
   token.approve(initialized_contract, MaxUint256, {"from": user})
 
-  with brownie.reverts("dev: Cannot add in the past"):
+  with brownie.reverts("Cannot add to past"):
     initialized_contract.addBulkRewardsLinearly(0, 1, fake_vault, token, REWARD_AMOUNT, {"from": user})
 
   ## Wait the epoch to end
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  with brownie.reverts("dev: Cannot add in the past"):
+  with brownie.reverts("Cannot add to past"):
     initialized_contract.addBulkRewardsLinearly(1, 1, fake_vault, token, REWARD_AMOUNT, {"from": user})
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  with brownie.reverts("dev: Cannot add in the past"):
+  with brownie.reverts("Cannot add to past"):
     initialized_contract.addBulkRewardsLinearly(1, 2, fake_vault, token, REWARD_AMOUNT, {"from": user})
 
 
@@ -75,7 +75,7 @@ def test_revert_if_not_divisible(initialized_contract, user, fake_vault, token):
   REWARD_AMOUNT = 1
   token.approve(initialized_contract, MaxUint256, {"from": user})
 
-  with brownie.reverts("dev: multiple"):
+  with brownie.reverts("must divide evenly"):
     initialized_contract.addBulkRewardsLinearly(1, 2, fake_vault, token, REWARD_AMOUNT, {"from": user})
   
   ## But works if it's divisible
