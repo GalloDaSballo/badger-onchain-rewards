@@ -178,7 +178,8 @@ contract RewardsManager is ReentrancyGuard {
     function _handleDeposit(address vault, address to, uint256 amount) internal {
         uint256 cachedCurrentEpoch = currentEpoch();
         accrueUser(cachedCurrentEpoch, vault, to);
-        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
+        // We have to accrue vault as totalSupply is gonna change
+        accrueVault(cachedCurrentEpoch, vault);
 
         unchecked {
             // Add deposit data for user
@@ -196,7 +197,8 @@ contract RewardsManager is ReentrancyGuard {
     function _handleWithdrawal(address vault, address from, uint256 amount) internal {
         uint256 cachedCurrentEpoch = currentEpoch();
         accrueUser(cachedCurrentEpoch, vault, from);
-        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
+        // We have to accrue vault as totalSupply is gonna change
+        accrueVault(cachedCurrentEpoch, vault);
 
         // Delete last shares
         // Delete deposit data or user
@@ -258,8 +260,9 @@ contract RewardsManager is ReentrancyGuard {
 
         // Removed unchecked per QSP-5
         totalPoints[epochId][vault] += timeLeftToAccrue * supply;
-        lastAccruedTimestamp[epochId][vault] = block.timestamp; // Any time after end is irrelevant
+        // Any time after end is irrelevant
         // Setting to the actual time when `accrueVault` was called may help with debugging though
+        lastAccruedTimestamp[epochId][vault] = block.timestamp;
     }
 
     /// @dev see {_getVaultTimeLeftToAccrue}
@@ -314,7 +317,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @return bool shouldUpdate, should we update the totalSupply[epochId][vault] (as we had to look it up)
     function _getTotalSupplyAtEpoch(uint256 epochId, address vault) internal view returns (uint256, bool) {
         if(lastAccruedTimestamp[epochId][vault] != 0){
-            return (totalSupply[epochId][vault], false); // Already updated
+            // Already updated
+            return (totalSupply[epochId][vault], false);
         }
 
         // Shortcut
@@ -344,7 +348,8 @@ contract RewardsManager is ReentrancyGuard {
 
         // Balance Never changed if we get here, the totalSupply is actually 0
         if(lastAccrueEpoch == 0) {
-            return (0, false); // No need to update if it' 0
+            // No need to update if it's 0
+            return (0, false);
         }
 
 
@@ -353,7 +358,8 @@ contract RewardsManager is ReentrancyGuard {
         uint256 lastKnownTotalSupply = totalSupply[lastAccrueEpoch][vault];
 
         if(lastKnownTotalSupply == 0){
-            return (0, false); // Despit it all, it's zero, no point in overwriting
+            // Despite it all, it's zero, no point in overwriting
+            return (0, false);
         }
 
         return (lastKnownTotalSupply, true);
@@ -392,7 +398,8 @@ contract RewardsManager is ReentrancyGuard {
         if(timeLeftToAccrue == 0){
             // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
             // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
             return;
         }
 
@@ -502,7 +509,8 @@ contract RewardsManager is ReentrancyGuard {
 
         // Balance Never changed if we get here, it's their first deposit, return 0
         if(lastBalanceChangeEpoch == 0) {
-            return (0, false); // We don't need to update the cachedBalance, the accrueTimestamp will be updated though
+            // We don't need to update the cachedBalance, the accrueTimestamp will be updated though
+            return (0, false);
         }
 
 
@@ -697,7 +705,8 @@ contract RewardsManager is ReentrancyGuard {
         require(epochEnd < currentEpoch(), "only ended epochs");
         _requireNoDuplicates(tokens);
 
-        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+        // We'll map out amounts to tokens for the bulk transfers
+        uint256[] memory amounts = new uint256[](tokensLength);
         for(uint epochId = epochStart; epochId <= epochEnd; ) {
             // Accrue each vault and user for each epoch
             accrueUser(epochId, vault, user);
@@ -711,7 +720,8 @@ contract RewardsManager is ReentrancyGuard {
                 continue;
             }
 
-            accrueUser(epochId, vault, address(this)); // Accrue this contract points
+            // Accrue this contract points
+            accrueUser(epochId, vault, address(this)); 
             accrueVault(epochId, vault);
 
             uint256 vaultTotalPoints = totalPoints[epochId][vault];
@@ -729,7 +739,8 @@ contract RewardsManager is ReentrancyGuard {
                 // Use ratio to calculate tokens to send
                 uint256 totalAdditionalReward = rewards[epochId][vault][tokens[i]];
                 // Which means they claimed all points for that token
-                pointsWithdrawn[epochId][vault][user][tokens[i]] = userPoints; // Can assign because we checked it's 0 above
+                // Can assign because we checked it's 0 above
+                pointsWithdrawn[epochId][vault][user][tokens[i]] = userPoints;
 
                 amounts[i] += totalAdditionalReward * userPoints / (vaultTotalPoints - thisContractVaultPoints);
 
@@ -881,7 +892,8 @@ contract RewardsManager is ReentrancyGuard {
     /// @param arr - List to check for dups
     function _requireNoDuplicates(address[] memory arr) internal pure {
         uint256 arrLength = arr.length;
-        for(uint i; i < arrLength - 1; ) { // only up to len - 1 (no j to check if i == len - 1)
+        // only up to len - 1 (no j to check if i == len - 1)
+        for(uint i; i < arrLength - 1; ) {
             for (uint j = i + 1; j < arrLength; ) {
                 require(arr[i] != arr[j], "dup");
 
@@ -1113,7 +1125,8 @@ contract RewardsManager is ReentrancyGuard {
         (uint256 startingContractBalance, ) = _getBalanceAtEpoch(params.epochStart, params.vault, address(this));
 
         uint256 tokensLength = params.tokens.length;
-        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+        // We'll map out amounts to tokens for the bulk transfers
+        uint256[] memory amounts = new uint256[](tokensLength);
     
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
@@ -1135,7 +1148,8 @@ contract RewardsManager is ReentrancyGuard {
 
             // Use the info to get userPoints and vaultPoints
             if (userInfo.pointsInStorage > 0) {
-                delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
+                // Delete them as they need to be set to 0 to avoid double claiming
+                delete points[epochId][params.vault][user];
             }
 
         
@@ -1169,10 +1183,12 @@ contract RewardsManager is ReentrancyGuard {
         // No risk of overflow but seems to save 26 gas
         unchecked {
             // Delete the points for that epoch so nothing more to claim
-            delete points[params.epochEnd][params.vault][user]; // This may be zero and may have already been deleted
+            // This may be zero and may have already been deleted
+            delete points[params.epochEnd][params.vault][user];
 
             // Because we set the accrue timestamp to end of the epoch
-            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; // Must set thsi so user can't claim and their balance here is non-zero / last known
+            // Must set this so user can't claim and their balance here is non-zero / last known
+            lastUserAccrueTimestamp[params.epochEnd][params.vault][user] = block.timestamp; 
             
             // And we delete the initial balance meaning they have no balance left
             delete shares[params.epochStart][params.vault][user];
@@ -1219,7 +1235,8 @@ contract RewardsManager is ReentrancyGuard {
         // Cache tokens length, resused in loop and at end for transfer || Saves almost 1k gas over a year of claims
         uint256 tokensLength = params.tokens.length;
 
-        uint256[] memory amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+        // We'll map out amounts to tokens for the bulk transfers
+        uint256[] memory amounts = new uint256[](tokensLength);
     
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
@@ -1239,7 +1256,8 @@ contract RewardsManager is ReentrancyGuard {
 
             // Use the info to get userPoints and vaultPoints
             if (userInfo.pointsInStorage > 0) {
-                delete points[epochId][params.vault][user]; // Delete them as they need to be set to 0 to avoid double claiming
+                // Delete them as they need to be set to 0 to avoid double claiming
+                delete points[epochId][params.vault][user]; 
             }
 
         
@@ -1323,7 +1341,8 @@ contract RewardsManager is ReentrancyGuard {
         (uint256 startingContractBalance, ) = _getBalanceAtEpoch(params.epochStart, params.vault, address(this));
 
         uint256 tokensLength = params.tokens.length;
-        amounts = new uint256[](tokensLength); // We'll map out amounts to tokens for the bulk transfers
+        // We'll map out amounts to tokens for the bulk transfers
+        amounts = new uint256[](tokensLength); 
 
         for(uint epochId = params.epochStart; epochId <= params.epochEnd;) {
 
