@@ -237,7 +237,7 @@ contract RewardsManager is ReentrancyGuard {
         }
 
 
-        // We found the last known balance given lastUserAccrueTimestamp
+        // We found the last known balance given lastAccruedTimestamp
         // Can still be zero (all shares burned)
         uint256 lastKnownTotalSupply = totalSupply[lastAccrueEpoch][vault];
 
