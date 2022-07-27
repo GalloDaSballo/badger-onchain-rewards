@@ -117,8 +117,119 @@ contract RewardsManager is ReentrancyGuard {
         DEPLOY_TIME = block.timestamp;
     }
 
+    /// === EPOCH HANDLING ==== ///
 
-    /// === Vault Accrual === ///
+    /// @dev Returns the current epoch
+    /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
+    /// @return uint256 - Current epoch
+    function currentEpoch() public view returns (uint256) {
+        unchecked {
+            return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
+        }
+    }
+
+    /// @dev Returns the start and end times for the Epoch
+    /// @param epochId - The epochId you want info of
+    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
+    function getEpochData(uint256 epochId) public view returns (Epoch memory) {
+        unchecked {
+            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
+            uint256 end = start + SECONDS_PER_EPOCH;
+            return Epoch(start, end);
+        }
+    }
+
+    /// @dev Returns the EpochData for a givenEpoch
+    /// @param epochId - The epochId you want info of
+    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
+    function epochs(uint256 epochId) external view returns (Epoch memory) {
+        return getEpochData(epochId);
+    }
+
+    /// === NOTIFY SYSTEM === ///
+
+    /// @dev This is used by external contracts to notify a change in balances
+    /// @notice The handling of changes requires accruing points until now
+    /// @notice After that, just change the balances
+    /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
+    /// @param from - sender of amount. address(0) represents a deposit
+    /// @param to - receiver of amount. address(0) represents a withdrawal
+    /// @param amount - quantity sent
+    function notifyTransfer(address from, address to, uint256 amount) external {
+        require(from != to, "Cannot transfer to yourself");
+        // NOTE: Anybody can call this because it's indexed by msg.sender
+        // Vault is msg.sender, and msg.sender cost 1 less gas
+
+        if (from == address(0)) {
+            _handleDeposit(msg.sender, to, amount);
+        } else if (to == address(0)) {
+            _handleWithdrawal(msg.sender, from, amount);
+        } else {
+            _handleTransfer(msg.sender, from, to, amount);
+        }
+
+        emit Transfer(msg.sender, from, to, amount);
+    }
+
+    /// @dev handles a deposit for vault, to address of amount
+    /// @param vault - address for which the balance is changing
+    /// @param to - receiver of amount
+    /// @param amount - quantity sent
+    function _handleDeposit(address vault, address to, uint256 amount) internal {
+        uint256 cachedCurrentEpoch = currentEpoch();
+        accrueUser(cachedCurrentEpoch, vault, to);
+        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
+
+        unchecked {
+            // Add deposit data for user
+            shares[cachedCurrentEpoch][vault][to] += amount;
+        }
+        // And total shares for epoch // Remove unchecked per QSP-5
+        totalSupply[cachedCurrentEpoch][vault] += amount;
+
+    }
+
+    /// @dev handles a withdraw for vault, from address of amount
+    /// @param vault - address for which the balance is changing
+    /// @param from - receiver of amount
+    /// @param amount - quantity sent
+    function _handleWithdrawal(address vault, address from, uint256 amount) internal {
+        uint256 cachedCurrentEpoch = currentEpoch();
+        accrueUser(cachedCurrentEpoch, vault, from);
+        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
+
+        // Delete last shares
+        // Delete deposit data or user
+        shares[cachedCurrentEpoch][vault][from] -= amount;
+        // Reduce totalSupply
+        totalSupply[cachedCurrentEpoch][vault] -= amount;
+
+    }
+
+    /// @dev handles a transfer for vault, from address to address of amount
+    /// @param vault - address for which the balance is changing
+    /// @param from - sender of amount
+    /// @param to - receiver of amount
+    /// @param amount - quantity sent
+    function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
+        uint256 cachedCurrentEpoch = currentEpoch();
+        // Accrue points for from, so they get rewards
+        accrueUser(cachedCurrentEpoch, vault, from);
+        // Accrue points for to, so they don't get too many rewards
+        accrueUser(cachedCurrentEpoch, vault, to);
+
+        unchecked {
+            // Add deposit data for to
+            shares[cachedCurrentEpoch][vault][to] += amount;
+        }
+
+         // Delete deposit data for from
+        shares[cachedCurrentEpoch][vault][from] -= amount;
+
+        // No change in total supply as this is a transfer
+    }
+
+    /// === VAULT ACCRUAL === ///
 
     /// @dev Given an epoch and vault, accrue it's totalPoints
     /// @notice You need to accrue a vault before you can claim it's rewards
@@ -248,7 +359,161 @@ contract RewardsManager is ReentrancyGuard {
         return (lastKnownTotalSupply, true);
     }
 
-    /// === CLAIMING === ///
+    /// === USER ACCRUAL === ///
+
+    /// @dev Accrue points gained during this epoch
+    /// @notice This is called for both receiving, sending, depositing and withdrawing, any time the user balance changes
+    /// @notice To properly accrue for this epoch:
+    /// @notice Figure out the time passed since last accrue (max is start of epoch)
+    /// @notice Figure out their points (their current balance) (before we update)
+    /// @notice Just multiply the points * the time, those are the points they've earned
+    /// @param epochId - id of epoch that you want to accrue points for
+    /// @param vault - address under which you want to accrue
+    /// @param user - address you want to accrue
+    function accrueUser(uint256 epochId, address vault, address user) public {
+        require(epochId <= currentEpoch(), "only ended epochs");
+
+        (uint256 currentBalance, bool shouldUpdate) = _getBalanceAtEpoch(epochId, vault, user);
+
+        if(shouldUpdate) {
+            shares[epochId][vault][user] = currentBalance;
+        }
+
+        // Optimization:  No balance, return early
+        if(currentBalance == 0){
+            // Update timestamp to avoid math being off
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
+            return;
+        }
+
+        uint256 timeLeftToAccrue = _getUserTimeLeftToAccrue(epochId, vault, user);
+
+        // Optimization: time is 0, end early
+        if(timeLeftToAccrue == 0){
+            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
+            // As such we still update the timestamp for historical purposes
+            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
+            return;
+        }
+
+        unchecked {
+            // Add Points and use + instead of +=
+            points[epochId][vault][user] += timeLeftToAccrue * currentBalance;
+        }
+
+        // Set last time for updating the user
+        lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
+    }
+
+
+    /// @dev see `_getUserTimeLeftToAccrue`
+    function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {    
+        require(epochId <= currentEpoch(), "Cannot see the future");
+        return _getUserTimeLeftToAccrue(epochId, vault, user);
+    }
+
+    /// @dev Figures out the last time the given user was accrued at the epoch for the vault
+    /// @return uint256 - Last time the user was accrued for a given vault and epoch
+    /// @notice Invariant -> Never changed means full duration
+    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
+    /// @notice Will return a nonsense value if you query for an epoch in the future 
+    /// @param epochId - id of epoch for which you want to know the time left for point accrual
+    /// @param vault - vault you want the info for
+    /// @param user - address you want the info for
+    function _getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) internal view returns (uint256) {
+        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
+        Epoch memory epochData = getEpochData(epochId);
+
+        // If for some reason we are trying to accrue a position already accrued after end of epoch, return 0
+        if(lastBalanceChangeTime >= epochData.endTimestamp){
+            return 0;
+        }
+
+        // Cap maxTime at epoch end
+        uint256 maxTime = _min(block.timestamp, epochData.endTimestamp);
+
+        // If timestamp is 0, we never accrued
+        // return _min(end, now) - start;
+        if(lastBalanceChangeTime == 0) {
+            unchecked {
+                return maxTime - epochData.startTimestamp;
+            }
+        }
+
+
+        // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
+        unchecked {
+            return _min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
+        }
+
+        // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
+
+        // Normal option 1  -> Accrue has happened in this epoch -> Accrue remaining time
+        // Normal option 2 -> Accrue never happened this epoch -> Accrue all time from start of epoch
+    }
+
+    /// @dev See `_getBalanceAtEpoch`
+    function getBalanceAtEpoch(uint256 epochId, address vault, address user) external view returns (uint256, bool) {
+        require(epochId <= currentEpoch(), "Cannot see the future");
+        return _getBalanceAtEpoch(epochId, vault, user);
+    }
+    
+
+    /// @dev Figures out and returns the balance of a user for a vault at a specific epoch
+    /// @return uint256 - balance
+    /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
+    /// @notice we return whether to update because the function has to figure that out
+    /// comparing the storage value after the return value is a waste of a SLOAD
+    /// @param epochId - id of epoch at which time you want to know the balance of
+    /// @param vault - vault for which you are checking the balance of
+    /// @param user - address you want the balance of
+    function _getBalanceAtEpoch(uint256 epochId, address vault, address user) internal view returns (uint256, bool) {
+        // Time Last Known Balance has changed
+        if(lastUserAccrueTimestamp[epochId][vault][user] != 0 ) {
+            return (shares[epochId][vault][user], false);
+        }
+
+        // Shortcut
+        if(epochId == 1) {
+            // If epoch is first one, and we don't have a balance, then balance is zero
+            return (0, false);
+
+            // This allows to do epochId - 1 below
+        }
+
+        uint256 lastBalanceChangeEpoch = 0; // We haven't found it
+
+        // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
+        // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
+        // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
+        for(uint256 i = epochId - 1; i > 0; ){
+            // NOTE: We have to loop because while we know the length of an epoch 
+            // we don't have a guarantee of when it starts
+
+            if(lastUserAccrueTimestamp[i][vault][user] != 0) {
+                lastBalanceChangeEpoch = i;
+                break; // Found it
+            }
+
+            unchecked {
+                --i;
+            }
+        }
+
+        // Balance Never changed if we get here, it's their first deposit, return 0
+        if(lastBalanceChangeEpoch == 0) {
+            return (0, false); // We don't need to update the cachedBalance, the accrueTimestamp will be updated though
+        }
+
+
+        // We found the last known balance given lastUserAccrueTimestamp
+        // Can still be zero
+        uint256 lastKnownBalance = shares[lastBalanceChangeEpoch][vault][user];
+
+        return (lastKnownBalance, true); // We should update the balance
+    }
+
+    /// === REWARD CLAIMING === ///
 
     /// @dev Allow to bulk claim rewards, each ith entry is used for a separate `claimReward`
     /// @notice We may delete this function as you could just build a periphery contract for this
@@ -412,9 +677,6 @@ contract RewardsManager is ReentrancyGuard {
         IERC20(token).safeTransfer(user, tokensForUser);
     }
 
-
-    /// ===== Gas friendlier functions for claiming ======= ///
-
     /// @dev Bulk claim all rewards for one vault over epochEnd - epochStart epochs (inclusive)
     /// @notice You can't use this function if you've already withdrawn rewards for the epochs
     /// @notice This function is useful if you claim once every X epochs, and want to bulk claim
@@ -487,10 +749,9 @@ contract RewardsManager is ReentrancyGuard {
 
             unchecked { ++i; }
         }
-    }    
-    /// === Bulk Claims END === ///
+    }
 
-    /// === Add Bulk Rewards === ///
+    /// === ADD REWARDS === ///
 
     /// @dev Given start and epochEnd, add an equal split of amount of token for the given vault
     /// @notice Use this to save gas and do a linear distribution over multiple epochs
@@ -614,271 +875,7 @@ contract RewardsManager is ReentrancyGuard {
         emit AddReward(epochId, vault, token, diff, msg.sender);
     }
 
-    /// **== Notify System ==** ///
-
-    /// @dev This is used by external contracts to notify a change in balances
-    /// @notice The handling of changes requires accruing points until now
-    /// @notice After that, just change the balances
-    /// @notice This contract is effectively tracking the balances of all users, this is pretty expensive
-    /// @param from - sender of amount. address(0) represents a deposit
-    /// @param to - receiver of amount. address(0) represents a withdrawal
-    /// @param amount - quantity sent
-    function notifyTransfer(address from, address to, uint256 amount) external {
-        require(from != to, "Cannot transfer to yourself");
-        // NOTE: Anybody can call this because it's indexed by msg.sender
-        // Vault is msg.sender, and msg.sender cost 1 less gas
-
-        if (from == address(0)) {
-            _handleDeposit(msg.sender, to, amount);
-        } else if (to == address(0)) {
-            _handleWithdrawal(msg.sender, from, amount);
-        } else {
-            _handleTransfer(msg.sender, from, to, amount);
-        }
-
-        emit Transfer(msg.sender, from, to, amount);
-    }
-
-    /// @dev handles a deposit for vault, to address of amount
-    /// @param vault - address for which the balance is changing
-    /// @param to - receiver of amount
-    /// @param amount - quantity sent
-    function _handleDeposit(address vault, address to, uint256 amount) internal {
-        uint256 cachedCurrentEpoch = currentEpoch();
-        accrueUser(cachedCurrentEpoch, vault, to);
-        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
-
-        unchecked {
-            // Add deposit data for user
-            shares[cachedCurrentEpoch][vault][to] += amount;
-        }
-        // And total shares for epoch // Remove unchecked per QSP-5
-        totalSupply[cachedCurrentEpoch][vault] += amount;
-
-    }
-
-    /// @dev handles a withdraw for vault, from address of amount
-    /// @param vault - address for which the balance is changing
-    /// @param from - receiver of amount
-    /// @param amount - quantity sent
-    function _handleWithdrawal(address vault, address from, uint256 amount) internal {
-        uint256 cachedCurrentEpoch = currentEpoch();
-        accrueUser(cachedCurrentEpoch, vault, from);
-        accrueVault(cachedCurrentEpoch, vault); // We have to accrue vault as totalSupply is gonna change
-
-        // Delete last shares
-        // Delete deposit data or user
-        shares[cachedCurrentEpoch][vault][from] -= amount;
-        // Reduce totalSupply
-        totalSupply[cachedCurrentEpoch][vault] -= amount;
-
-    }
-
-    /// @dev handles a transfer for vault, from address to address of amount
-    /// @param vault - address for which the balance is changing
-    /// @param from - sender of amount
-    /// @param to - receiver of amount
-    /// @param amount - quantity sent
-    function _handleTransfer(address vault, address from, address to, uint256 amount) internal {
-        uint256 cachedCurrentEpoch = currentEpoch();
-        // Accrue points for from, so they get rewards
-        accrueUser(cachedCurrentEpoch, vault, from);
-        // Accrue points for to, so they don't get too many rewards
-        accrueUser(cachedCurrentEpoch, vault, to);
-
-        unchecked {
-            // Add deposit data for to
-            shares[cachedCurrentEpoch][vault][to] += amount;
-        }
-
-         // Delete deposit data for from
-        shares[cachedCurrentEpoch][vault][from] -= amount;
-
-        // No change in total supply as this is a transfer
-    }
-
-    /// @dev Accrue points gained during this epoch
-    /// @notice This is called for both receiving, sending, depositing and withdrawing, any time the user balance changes
-    /// @notice To properly accrue for this epoch:
-    /// @notice Figure out the time passed since last accrue (max is start of epoch)
-    /// @notice Figure out their points (their current balance) (before we update)
-    /// @notice Just multiply the points * the time, those are the points they've earned
-    /// @param epochId - id of epoch that you want to accrue points for
-    /// @param vault - address under which you want to accrue
-    /// @param user - address you want to accrue
-    function accrueUser(uint256 epochId, address vault, address user) public {
-        require(epochId <= currentEpoch(), "only ended epochs");
-
-        (uint256 currentBalance, bool shouldUpdate) = _getBalanceAtEpoch(epochId, vault, user);
-
-        if(shouldUpdate) {
-            shares[epochId][vault][user] = currentBalance;
-        }
-
-        // Optimization:  No balance, return early
-        if(currentBalance == 0){
-            // Update timestamp to avoid math being off
-            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
-            return;
-        }
-
-        uint256 timeLeftToAccrue = _getUserTimeLeftToAccrue(epochId, vault, user);
-
-        // Optimization: time is 0, end early
-        if(timeLeftToAccrue == 0){
-            // No time can happen if accrue happened on same block or if we're accruing after the end of the epoch
-            // As such we still update the timestamp for historical purposes
-            lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp; // This is effectively 5k more gas to know the last accrue time even after it lost relevance
-            return;
-        }
-
-        unchecked {
-            // Add Points and use + instead of +=
-            points[epochId][vault][user] += timeLeftToAccrue * currentBalance;
-        }
-
-        // Set last time for updating the user
-        lastUserAccrueTimestamp[epochId][vault][user] = block.timestamp;
-    }
-
-
-    /// @dev see `_getUserTimeLeftToAccrue`
-    function getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) public view returns (uint256) {    
-        require(epochId <= currentEpoch(), "Cannot see the future");
-        return _getUserTimeLeftToAccrue(epochId, vault, user);
-    }
-
-    /// @dev Figures out the last time the given user was accrued at the epoch for the vault
-    /// @return uint256 - Last time the user was accrued for a given vault and epoch
-    /// @notice Invariant -> Never changed means full duration
-    /// @notice Will return between 0 and `SECONDS_PER_EPOCH` for any epochId <= currentEpoch()
-    /// @notice Will return a nonsense value if you query for an epoch in the future 
-    /// @param epochId - id of epoch for which you want to know the time left for point accrual
-    /// @param vault - vault you want the info for
-    /// @param user - address you want the info for
-    function _getUserTimeLeftToAccrue(uint256 epochId, address vault, address user) internal view returns (uint256) {
-        uint256 lastBalanceChangeTime = lastUserAccrueTimestamp[epochId][vault][user];
-        Epoch memory epochData = getEpochData(epochId);
-
-        // If for some reason we are trying to accrue a position already accrued after end of epoch, return 0
-        if(lastBalanceChangeTime >= epochData.endTimestamp){
-            return 0;
-        }
-
-        // Cap maxTime at epoch end
-        uint256 maxTime = _min(block.timestamp, epochData.endTimestamp);
-
-        // If timestamp is 0, we never accrued
-        // return _min(end, now) - start;
-        if(lastBalanceChangeTime == 0) {
-            unchecked {
-                return maxTime - epochData.startTimestamp;
-            }
-        }
-
-
-        // If this underflow the accounting on the contract is broken, so it's prob best for it to underflow
-        unchecked {
-            return _min(maxTime - lastBalanceChangeTime, SECONDS_PER_EPOCH);
-        }
-
-        // Weird Options -> Accrue has happened after end of epoch -> Don't accrue anymore
-
-        // Normal option 1  -> Accrue has happened in this epoch -> Accrue remaining time
-        // Normal option 2 -> Accrue never happened this epoch -> Accrue all time from start of epoch
-    }
-
-    /// @dev See `_getBalanceAtEpoch`
-    function getBalanceAtEpoch(uint256 epochId, address vault, address user) external view returns (uint256, bool) {
-        require(epochId <= currentEpoch(), "Cannot see the future");
-        return _getBalanceAtEpoch(epochId, vault, user);
-    }
-    
-
-    /// @dev Figures out and returns the balance of a user for a vault at a specific epoch
-    /// @return uint256 - balance
-    /// @return bool - should update, whether the accrue function should update the balance for the inputted epochId
-    /// @notice we return whether to update because the function has to figure that out
-    /// comparing the storage value after the return value is a waste of a SLOAD
-    /// @param epochId - id of epoch at which time you want to know the balance of
-    /// @param vault - vault for which you are checking the balance of
-    /// @param user - address you want the balance of
-    function _getBalanceAtEpoch(uint256 epochId, address vault, address user) internal view returns (uint256, bool) {
-        // Time Last Known Balance has changed
-        if(lastUserAccrueTimestamp[epochId][vault][user] != 0 ) {
-            return (shares[epochId][vault][user], false);
-        }
-
-        // Shortcut
-        if(epochId == 1) {
-            // If epoch is first one, and we don't have a balance, then balance is zero
-            return (0, false);
-
-            // This allows to do epochId - 1 below
-        }
-
-        uint256 lastBalanceChangeEpoch = 0; // We haven't found it
-
-        // Pessimistic Case, we gotta fetch the balance from the lastKnown Balances (could be up to currentEpoch - totalEpochs away)
-        // Because we have lastUserAccrueTimestamp, let's find the first non-zero value, that's the last known balance
-        // Notice that the last known balance we're looking could be zero, hence we look for a non-zero change first
-        for(uint256 i = epochId - 1; i > 0; ){
-            // NOTE: We have to loop because while we know the length of an epoch 
-            // we don't have a guarantee of when it starts
-
-            if(lastUserAccrueTimestamp[i][vault][user] != 0) {
-                lastBalanceChangeEpoch = i;
-                break; // Found it
-            }
-
-            unchecked {
-                --i;
-            }
-        }
-
-        // Balance Never changed if we get here, it's their first deposit, return 0
-        if(lastBalanceChangeEpoch == 0) {
-            return (0, false); // We don't need to update the cachedBalance, the accrueTimestamp will be updated though
-        }
-
-
-        // We found the last known balance given lastUserAccrueTimestamp
-        // Can still be zero
-        uint256 lastKnownBalance = shares[lastBalanceChangeEpoch][vault][user];
-
-        return (lastKnownBalance, true); // We should update the balance
-    }
-
-    /// === EPOCH HANDLING ==== ///
-
-    /// @dev Returns the current epoch
-    /// @notice The first epoch is 1 as 0 is used as a null value flag in the contract
-    /// @return uint256 - Current epoch
-    function currentEpoch() public view returns (uint256) {
-        unchecked {
-            return (block.timestamp - DEPLOY_TIME) / SECONDS_PER_EPOCH + 1;
-        }
-    }
-
-    /// @dev Returns the start and end times for the Epoch
-    /// @param epochId - The epochId you want info of
-    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
-    function getEpochData(uint256 epochId) public view returns (Epoch memory) {
-        unchecked {
-            uint256 start = DEPLOY_TIME + SECONDS_PER_EPOCH * (epochId - 1);
-            uint256 end = start + SECONDS_PER_EPOCH;
-            return Epoch(start, end);
-        }
-    }
-
-    /// @dev Returns the EpochData for a givenEpoch
-    /// @param epochId - The epochId you want info of
-    /// @return Epoch - Epoch struct with the start and end time of the epoch in matter
-    function epochs(uint256 epochId) external view returns (Epoch memory) {
-        return getEpochData(epochId);
-    }
-
-    /// === Utils === ///
+    /// === UTILS === ///
 
     /// @dev Checks that there's no duplicate addresses
     /// @param arr - List to check for dups
@@ -904,7 +901,7 @@ contract RewardsManager is ReentrancyGuard {
     }
 
 
-    /// ===== GAS OPTIMIZED BULK CLAIMS ==== ////
+    /// ==== GAS OPTIMIZED BULK CLAIMS === ////
 
     /// NOTE: Non storage writing functions
     /// With the goal of making view functions cheap
