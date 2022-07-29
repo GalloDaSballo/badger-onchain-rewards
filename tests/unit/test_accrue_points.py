@@ -21,7 +21,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault):
 
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  epochData = initialized_contract.epochs(EPOCH)
+  epochData = initialized_contract.getEpochData(EPOCH)
   difference = epochData[1] - initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user)
   vault_difference = epochData[1] - initialized_contract.lastAccruedTimestamp(EPOCH, fake_vault)
 
@@ -57,7 +57,7 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
 
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  epochData = initialized_contract.epochs(EPOCH)
+  epochData = initialized_contract.getEpochData(EPOCH)
   difference = epochData[1] - initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user)
   vault_difference = epochData[1] - initialized_contract.lastAccruedTimestamp(EPOCH, fake_vault)
 
@@ -79,8 +79,6 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   assert initialized_contract.totalPoints(EPOCH, fake_vault) == EXPECTED_VAULT_POINTS
 
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
-
-  initialized_contract.startNextEpoch()
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 100000)
   chain.mine()
@@ -111,5 +109,17 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
   assert EXPECTED_POINTS == EXPECTED_VAULT_POINTS
 
 
-## TODO Accrue points work proportionally to time of last accrue
-## This is a big TODO if I can do it properly
+## One deposit, total supply is the one deposit
+## Means that at end of epoch
+## My points == total Points
+def test_revert_if_accrue_future(initialized_contract, user, fake_vault):
+  epoch = initialized_contract.currentEpoch()
+
+  with brownie.reverts():
+    initialized_contract.accrueUser(epoch + 1, fake_vault, user) 
+  
+  with brownie.reverts(): 
+    initialized_contract.accrueVault(epoch + 1, fake_vault)
+    
+  with brownie.reverts(): 
+    initialized_contract.getVaultTimeLeftToAccrue(epoch + 1000, fake_vault)

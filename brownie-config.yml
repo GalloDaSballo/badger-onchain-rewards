@@ -14,9 +14,14 @@ dependencies:
 compiler:
     solc:
         version: 0.8.10
+        optimizer:
+            enabled: true
+            runs: 200
         remappings:
             - "@oz=OpenZeppelin/openzeppelin-contracts@4.5.0/contracts/"
-
 reports:
     exclude_contracts:
         - SafeMath
+        - Address
+        - SafeERC20
+        - FakeFeeOnTransferToken

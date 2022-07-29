@@ -6,12 +6,10 @@ from helpers.utils import (
 AddressZero = "0x0000000000000000000000000000000000000000"
 MaxUint256 = str(int(2 ** 256 - 1))
 
-## TODO: Test claimBulkTokensOverMultipleEpochsOptimized
+
 ## Make sure: Old balances are zero and can't be changed
 ## Latest balance is untouched, ideally ported over if need be
 
-
-## TODO
 """
   _basic
   Optimized Claim works - DONE
@@ -27,12 +25,12 @@ MaxUint256 = str(int(2 ** 256 - 1))
   _basic
   Security: If you claim, everything goes to zero except the lastAccrueTimestamp, which makes balance always be 0
 
-  Security: If you claim from 2 to 3, you can't use balance of epoch1 to reaccrue and get more rewards -> TODO
+  Security: If you claim from 2 to 3, you can't use balance of epoch1 to reaccrue and get more rewards -> DONE
 """
 
 ## One deposit, total supply is the one deposit
 ## Means that 
-def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, user, fake_vault, token):
+def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_basic(initialized_contract, user, fake_vault, token):
   INITIAL_DEPOSIT = 1e18
   REWARD_AMOUNT = 1e20
   EPOCH = initialized_contract.currentEpoch()
@@ -57,12 +55,9 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Claim rewards via the bulk function
   ## Btw only you can claim for yourself
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": user})
 
 
   ## Because we use the optimized
@@ -74,6 +69,8 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
   assert initialized_contract.shares(EPOCH, fake_vault, user) == INITIAL_DEPOSIT
 
   ## Vault total Points are non-zero
+  ## if we accrue vault, which we can as change is non-destructive to vault data
+  initialized_contract.accrueVault(EPOCH, fake_vault)
   assert initialized_contract.totalPoints(EPOCH, fake_vault) > 0
   ## And vault total Supply are non-zero
   assert initialized_contract.totalSupply(EPOCH, fake_vault) > 0
@@ -99,7 +96,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_basic(initialized_contract, 
 
   assert initialized_contract.points(EPOCH, fake_vault, user) == 0
 
-def test_claimBulkTokensOverMultipleEpochsOptimized_cannotClaimForOthers(initialized_contract, user, fake_vault, token, second_user):
+def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_cannotClaimForOthers(initialized_contract, user, fake_vault, token, second_user):
   INITIAL_DEPOSIT = 1e18
   INITIAL_SECOND_USER_DEPOSIT = INITIAL_DEPOSIT // 3
   REWARD_AMOUNT = 1e20
@@ -125,13 +122,10 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannotClaimForOthers(initial
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   """
     Cannot claim for someone else
   """
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": second_user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
 
   ## They got nothing
   assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
@@ -139,7 +133,7 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannotClaimForOthers(initial
 
 
 
-def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_contract, user, fake_vault, token, second_user):
+def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_permissions(initialized_contract, user, fake_vault, token, second_user):
   INITIAL_DEPOSIT = 1e18
   INITIAL_SECOND_USER_DEPOSIT = INITIAL_DEPOSIT // 3
   REWARD_AMOUNT = 1e20
@@ -166,13 +160,10 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   """
     Cannot claim for someone else
   """
-  tx = initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, EPOCH, fake_vault, [token], {"from": second_user})
+  tx = initialized_contract.reap([EPOCH, EPOCH, fake_vault, [token]], {"from": second_user})
 
   ## They got nothing
   assert token.balanceOf(user) == initial_reward_balance ## They didn't get the tokens
@@ -184,8 +175,8 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   """
       Cannot claim if epoch not ended
   """
-  with brownie.reverts("dev: epoch math wrong"):
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(EPOCH, CURRENT_EPOCH, fake_vault, [token], {"from": user})
+  with brownie.reverts("only ended epochs"):
+    initialized_contract.reap([EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 
   """
@@ -199,19 +190,16 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_permissions(initialized_cont
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Claim token here
   initialized_contract.claimReward(CURRENT_EPOCH, fake_vault, token, user, {"from": user})
 
   ## Which will set `pointsWithdrawn` to non-zero causing revert on the check
-  with brownie.reverts("dev: You already accrued during the epoch, cannot optimize"):
-    initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token], {"from": user})
+  with brownie.reverts("already claimed"):
+    initialized_contract.reap([CURRENT_EPOCH, CURRENT_EPOCH, fake_vault, [token]], {"from": user})
 
 
 
-def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initialized_contract, user, fake_vault, token, second_user):
+def test_claimBulkTokensOverMultipleEpochsOptimizedWithoutStorage_cannot_use_old_balance(initialized_contract, user, fake_vault, token, second_user):
   INITIAL_DEPOSIT = 1e18
   REWARD_AMOUNT = 1e20
   EPOCH = initialized_contract.currentEpoch()
@@ -239,24 +227,13 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
 
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   ## Wait the epoch to end 2
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
-
   
   ## Wait the epoch to end 3
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
   chain.mine()
-
-
-  ## Go next epoch else you can't claim
-  initialized_contract.startNextEpoch()
 
   ## Second user withdraws at beginning of epoch 4
   initialized_contract.notifyTransfer(second_user, AddressZero, INITIAL_DEPOSIT, {"from": fake_vault})
@@ -265,8 +242,8 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   assert initialized_contract.currentEpoch() == 4
   
   ## Claim rewards for 2 and 3 for both users
-  initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(2, 3, fake_vault, [token], {"from": user})
-  initialized_contract.claimBulkTokensOverMultipleEpochsOptimized(2, 3, fake_vault, [token], {"from": second_user})
+  initialized_contract.reap([2, 3, fake_vault, [token]], {"from": user})
+  initialized_contract.reap([2, 3, fake_vault, [token]], {"from": second_user})
 
   """
     User 1 flow
@@ -297,8 +274,28 @@ def test_claimBulkTokensOverMultipleEpochsOptimized_cannot_use_old_balance(initi
   ## Balance at 1 is original deposit
   initialized_contract.getBalanceAtEpoch(1, fake_vault, second_user)[0] == INITIAL_DEPOSIT
 
+## Claim points with no deposit
+def test_bulk_claim_no_points(initialized_contract, user, fake_vault, token, second_user):
+  initial_bal = token.balanceOf(second_user)
 
-## TODO: With a lot of attention
-## Optimized -> Withdraw 
-## Withdraw -> Optimized -> Withdraw
-## See if any of those allows stealing funds
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## With no points you get no rewards
+  initialized_contract.reap([1, 1, fake_vault, [token]], {"from": user})
+
+  ## No tokens received
+  assert initial_bal == token.balanceOf(second_user)
+
+def test_bulk_claim_revert(initialized_contract, user, fake_vault, token, second_user):
+  ## Revert is epoch_start > epoch_end
+  with brownie.reverts():
+    initialized_contract.reap([1, 0, fake_vault, [token]], {"from": user})
+  
+
+  chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 1)
+  chain.mine()
+
+  ## Revert if claiming same token
+  with brownie.reverts():
+    initialized_contract.reap([1, 1, fake_vault, [token, token]], {"from": user})

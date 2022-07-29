@@ -1,6 +1,9 @@
 import brownie
 from brownie import *
-
+from helpers.utils import (
+    approx,
+)
+## NOTE: We use approx for time left to accrue as 1 second can pass because ganache is Real Time for some reason
 AddressZero = "0x0000000000000000000000000000000000000000"
 MaxUint256 = str(int(2 ** 256 - 1))
 
@@ -38,12 +41,12 @@ def test_if_wait_one_epoch_should_accrue_one_epoch(initialized_contract, user, f
 
   deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
   time_of_deposit = deposit_tx.timestamp
-  assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == chain.time() - time_of_deposit ## Accrue happens at deposit
+  assert approx(initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user), chain.time() - time_of_deposit, 1) ## Accrue happens at deposit
 
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 10000)
   chain.mine()
-  epoch = initialized_contract.epochs(EPOCH)
+  epoch = initialized_contract.getEpochData(EPOCH)
   epoh_end = epoch[1]
 
   ## Time left to accrue should be from last accrue to end of epoch
@@ -88,10 +91,10 @@ def test_if_wait_some_time_in_one_epoch(initialized_contract, user, fake_vault):
 
   chain.sleep(10000)
   chain.mine()
-  epoch = initialized_contract.epochs(EPOCH)
+  epoch = initialized_contract.getEpochData(EPOCH)
 
   ## Time left to accrue should be from last accrue to end of epoch
-  assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == chain.time() - time_of_deposit ## Accrue happens at deposit
+  assert approx(initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user), chain.time() - time_of_deposit, 1) ## Accrue happens at deposit
 
 
 def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
@@ -109,13 +112,11 @@ def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 10000)
   chain.mine()
-  epoch = initialized_contract.epochs(EPOCH)
+  epoch = initialized_contract.getEpochData(EPOCH)
   epoch_end = epoch[1]
 
   ## Time left to accrue should be from last accrue to end of epoch
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == epoch_end - time_of_deposit ## Accrue happens at deposit
-
-  initialized_contract.startNextEpoch()
 
   ## Didn't change despite more time having passed
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == epoch_end - time_of_deposit ## Accrue happens at deposit
@@ -124,16 +125,27 @@ def test_if_wait_one_more_epoch(initialized_contract, user, fake_vault):
 
   chain.sleep(initialized_contract.SECONDS_PER_EPOCH() + 10000)
   chain.mine()
-  epoch = initialized_contract.epochs(EPOCH)
+  epoch = initialized_contract.getEpochData(EPOCH)
   epoch_end = epoch[1]
 
   ## Still hasn't changed
   assert initialized_contract.getUserTimeLeftToAccrue(EPOCH, fake_vault, user) == epoch_end - time_of_deposit ## Accrue happens at deposit
 
   ## We're at epoch 3, we've never done anything in epoch 3, prove that getUserTimeLeftToAccrue is the entire epoch duration
-  epoch_two = initialized_contract.epochs(2)
+  epoch_two = initialized_contract.getEpochData(2)
   epoch_two_start = epoch_two[0]
   epoch_two_end = epoch_two[1]
   assert initialized_contract.getUserTimeLeftToAccrue(2, fake_vault, user) == epoch_two_end - epoch_two_start ## Accrue happens at deposit
+
+def test_getUserTimeLeftToAccure_revert(initialized_contract, user, fake_vault):
+  INITIAL_DEPOSIT = 1e18
+
+  EPOCH = 1
+
+  deposit_tx = initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
+  time_of_deposit = deposit_tx.timestamp
+  ## Test revert case: require(epochId <= currentEpoch());
+  with brownie.reverts():
+       initialized_contract.getUserTimeLeftToAccrue(EPOCH + 1000, fake_vault, user)
 
 
