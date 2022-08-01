@@ -12,11 +12,17 @@ REWARD_PER_EPOCH = 10_000 * 10 ** SHARES_DECIMALS ## 10 k ETH example
 USERS_RANGE = 10
 USERS_MIN = 3
 
-SHOULD_PRINT = False
+SHOULD_PRINT = True
 
 def print_if(v):
   if SHOULD_PRINT:
     print(v)
+
+
+"""
+  Basic test showing how compound and non-compound claims will work
+  Assumes that rewards per epoch are always the same
+"""
   
 
 def simple_users_sim():
