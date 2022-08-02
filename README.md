@@ -1,5 +1,12 @@
-# RewardsManager - NOT AUDITED - WIP - USE AT OWN RISK - UNDISCLOSED VULNERABILITIES!!!! DO NOT USE!!!
-DO NOT USE IN PROD, there are known vulnerabilities!!!!
+# RewardsManager V1 - Direct Emissions Only - Check Audit
+
+The RewardsManager contract integrates with vaults to manage their users' rewards. Rewards can be added to the RewardsManager contract by anyone. 
+Those rewards can be claimed directly from the RewardsManager contract by the vault's depositors. 
+Rewards accumulate per epoch, each of which has a duration of one week.
+
+**Check the Audit before using this code into production.**
+
+Also fully read the readme below
 
 ## Video Introduction
 https://youtu.be/QoU96EWMJio
@@ -15,25 +22,43 @@ Allows to vest rewards based on time spent
 Use case is deposits in a vault so that Badger Dao can move to fully onChain emissions
 Code is generalized enough to allow to handle an unknown amount of rewards for an unknown amount of types of tokens
 
+## Run Tests
+
+If you wish to run all tests use:
+
+```brownie test```
 
 
-## Vulnerabilities, and reports
+For gas benchmarks:
+```brownie test --gas```
 
-Commit: fb02070c919dd19f7f3ba5e2b2cfe9b4e394c1aa
+For Coverage:
+
+First, change `DEPLOY_TIME` to be non-immutable (due to a bug from Brownie)
+
+Then run:
+```brownie test --coverage```
+
+
+
+
+## Previous Vulnerabilities
+
+### Commit: fb02070c919dd19f7f3ba5e2b2cfe9b4e394c1aa
 Report: https://docs.google.com/document/d/1bO2XfwQ60wQWePihgJu6UsukimI5ygTmC1rBTMGGNp0/edit
 Status: Vulnerabilities have been mitigated
 
 
-Commit: 62a728
+### Commit: 62a728
 Report: https://www.hacknote.co/17c261f7d8fWbdml/17f3efe98b4HW20Y
 Status: Vulnerabilities have been mitigated
 
 
-Commit: 921ffa1edb42
+### Commit: 921ffa1edb42
 Report: https://docs.google.com/document/d/1l3sWKgKrp29syOj3_dX7tCozVtmpwYOIykBj1A-unVU/edit#
 Status: Vulnerabilities have been mitigated
 
-Additional Fixes:
+### Additional Fixes:
 Vault tokens being sent to this contract causes unfairness in claiming tokens as the rewards contract will receive a portion of the rewards
 
 Solution:
