@@ -1,7 +1,7 @@
 from random import seed
 from random import random
 
-EPOCHS_RANGE = 0
+EPOCHS_RANGE = 10
 EPOCHS_MIN = 2
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
@@ -10,12 +10,12 @@ SECONDS_PER_EPOCH = 604800
 
 MIN_REWARDS_PER_EPOCH = 1_000 ## 10 k ETH example
 REWARD_PER_EPOCH = 100_000 ## 100 k ETH example
-USERS_RANGE = 0
-USERS_MIN = 2
+USERS_RANGE = 10
+USERS_MIN = 3
 
 
 ## How many simulations to run?
-ROUNDS = 1
+ROUNDS = 1_000
 
 ## Should the print_if print stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -90,22 +90,28 @@ def simple_users_sim():
 
     contract_points_this_epoch = reward * SECONDS_PER_EPOCH
     temp_total_points_acc += contract_points_this_epoch
-    print_if("temp_total_points_acc")
-    print_if(temp_total_points_acc)
-    contract_points_per_epoch_cumulative.append(temp_total_points_acc)
 
-    contract_points_per_epoch.append(contract_points_this_epoch)
-
-  ## Reverse as we need to subtract points in the opposite direction
-  contract_points_per_epoch_cumulative.reverse()
-
-  print_if("contract_points_per_epoch_cumulative")
-  print_if(contract_points_per_epoch_cumulative)
 
   print_if("rewards")
   print_if(rewards)
   
   contract_points = total_rewards * SECONDS_PER_EPOCH
+
+  for epoch in range(number_of_epochs):
+    contract_points_per_epoch_cumulative.append(contract_points)
+  
+  acc = 0
+  for epoch in range(number_of_epochs):
+    if(epoch > 0):
+      ## Remove acc
+      contract_points_per_epoch_cumulative[epoch] -= acc
+    
+    ## Skip first one
+    acc += rewards[epoch] * SECONDS_PER_EPOCH
+      
+
+  print("contract_points_per_epoch_cumulative")
+  print(contract_points_per_epoch_cumulative)
 
   ## Ensure we are removing all points on first epoch
   assert contract_points == contract_points_per_epoch_cumulative[0]
