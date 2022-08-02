@@ -15,7 +15,7 @@ USERS_MIN = 3
 
 
 ## How many simulations to run?
-ROUNDS = 1_000
+ROUNDS = 10_000
 
 ## Should the print_if print stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -59,7 +59,6 @@ def simple_users_sim():
 
   for user in range(number_of_users):
     is_claiming = random() >= 0.5
-    is_claiming = True ## For now everyone claims
     claimers += 1 if is_claiming else 0
     claiming.append(is_claiming)
     balance = (int(random() * REWARD_PER_EPOCH) + MIN_REWARDS_PER_EPOCH) * 10 ** SHARES_DECIMALS
@@ -108,10 +107,6 @@ def simple_users_sim():
     
     ## Skip first one
     acc += rewards[epoch] * SECONDS_PER_EPOCH
-      
-
-  print("contract_points_per_epoch_cumulative")
-  print(contract_points_per_epoch_cumulative)
 
   ## Ensure we are removing all points on first epoch
   assert contract_points == contract_points_per_epoch_cumulative[0]
@@ -142,8 +137,6 @@ def simple_users_sim():
     print_if("epoch")
     print_if(epoch)
 
-    print("divisor")
-    print(divisor)
 
     for user in range(number_of_users):
       ## Skip for non-claimers
@@ -164,49 +157,29 @@ def simple_users_sim():
       total_dust += user_total_rewards_dust
       total_previously_claim_epochs_ago += claimed_points
       total_points_claimed_per_epoch[epoch] += claimed_points
-    
-  ## Do stuff at end of epoch here
 
   ## Simulation of user claiming all epochs at end through new math
   ## They will use the updated balances, without reducing them (as they always claim at end of entire period)
+  for epoch in range(number_of_epochs):
+    divisor = (total_points - contract_points_per_epoch_cumulative[epoch])
 
-  ## TODO: Right now it's not considered
+    for user in range(number_of_users):
+      ## Skip for claimers // Already done above
+      if (claiming[user]):
+        continue
 
-  # for epoch in range(number_of_epochs):
-  #   additional_sub = total_points_claimed_per_epoch[epoch] if epoch > 0 else 0
-  #   ## Equivalent to divisor = (total_points - (contract_points - contract_points_per_epoch * epoch))
-  #   divisor = (total_points - additional_sub - contract_points_per_epoch_cumulative[epoch])
+      user_total_rewards_fair = rewards[epoch] * points[user] // divisor
+      user_total_rewards_dust = rewards[epoch] * points[user] % divisor
 
-  #   for user in range(number_of_users):
-  #     ## Skip for claimers // Already done above
-  #     if (claiming[user]):
-  #       continue
+      claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
+      ## Add new rewards to user points for next epoch
+      points[user] += claimed_points
+      balances[user] += user_total_rewards_fair 
 
-  #     user_total_rewards_fair = rewards[epoch] * points[user] // divisor
-  #     user_total_rewards_dust = rewards[epoch] * points[user] % divisor
+      claimed[user] += user_total_rewards_fair
 
-  #     claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
-  #     ## Add new rewards to user points for next epoch
-  #     points[user] += claimed_points
-  #     balances[user] += user_total_rewards_fair 
-
-  #     claimed[user] += user_total_rewards_fair
-
-  #     total_claimed += user_total_rewards_fair
-  #     total_dust += user_total_rewards_dust
-    
-  #   ## At end of current epoch, subtract points claimed by claimers from previous loop (weekly claimers)
-  #   ## Subtract points at end of epoch
-  #   ## TODO: Contract points are subbed above
-
-  #   ## integrity test TODO: OUT OF WACK DUE TO HOW WE DO POINTS
-  #   # acc = 0
-  #   # for user in range(number_of_users):
-  #   #   acc += points[user]
-  #   # print("acc + contract_points == total_points")
-  #   # print(acc + contract_points)
-  #   # print(total_points)
-  #   # assert acc + contract_points == total_points
+      total_claimed += user_total_rewards_fair
+      total_dust += user_total_rewards_dust
 
   print_if("number_of_users")
   print_if(number_of_users)
