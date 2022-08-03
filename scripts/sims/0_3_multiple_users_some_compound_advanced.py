@@ -85,7 +85,6 @@ def simple_users_sim():
   ## Vault Stuff
   total_rewards = 0
   rewards = []
-  contract_points_per_epoch = []
   contract_points_per_epoch_cumulative = []
   temp_total_points_acc = 0
 
@@ -124,8 +123,6 @@ def simple_users_sim():
   ## Simulation of user claiming each epoch and contract properly re-computing divisor
   total_dust = 0
   total_claimed = 0
-
-  cached_contract_points = contract_points
 
   ## SETUP total_points_claimed_per_epoch
   total_points_claimed_per_epoch = []
