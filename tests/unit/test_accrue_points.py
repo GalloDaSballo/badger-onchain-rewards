@@ -21,7 +21,7 @@ def test_full_deposit_one_user(initialized_contract, user, fake_vault):
 
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  epochData = initialized_contract.epochs(EPOCH)
+  epochData = initialized_contract.getEpochData(EPOCH)
   difference = epochData[1] - initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user)
   vault_difference = epochData[1] - initialized_contract.lastAccruedTimestamp(EPOCH, fake_vault)
 
@@ -57,7 +57,7 @@ def test_full_deposit_one_user_two_epochs(initialized_contract, user, fake_vault
 
   initialized_contract.notifyTransfer(AddressZero, user, INITIAL_DEPOSIT, {"from": fake_vault})
 
-  epochData = initialized_contract.epochs(EPOCH)
+  epochData = initialized_contract.getEpochData(EPOCH)
   difference = epochData[1] - initialized_contract.lastUserAccrueTimestamp(EPOCH, fake_vault, user)
   vault_difference = epochData[1] - initialized_contract.lastAccruedTimestamp(EPOCH, fake_vault)
 
