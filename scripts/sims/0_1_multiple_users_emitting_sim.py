@@ -12,6 +12,11 @@ REWARD_PER_EPOCH = 10_000 * 10 ** SHARES_DECIMALS ## 10 k ETH example
 USERS_RANGE = 1000
 USERS_MIN = 3
 
+"""
+Simulation of user claiming each epoch and contract properly re-computing divisor
+Foundation for other sims
+"""
+
 def simple_users_sim():
 
   number_of_epochs = int(random() * EPOCHS_RANGE) + EPOCHS_MIN

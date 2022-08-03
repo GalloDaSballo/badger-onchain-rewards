@@ -31,8 +31,15 @@ SHOULD_PRINT = ROUNDS == 1
 ## Write stuff to recompute the total points (see commented below)
 
 """
-  - WIP: Advanced V1 -> Random Rewards -> Decided upfront
-  - TODO: Advanced V2 -> Total Supply also changes (Rewards are minted mid-epoch)
+  - Advanced V1 -> Random Rewards
+  - Equivalent to adding rewards mid epoch per following proof.
+
+  If Dep(x) * TIME_LEFT(t) = y
+  Then
+  Dep(x) * TIME_LEFT(t') = y'
+
+  Where abs(y - y' is dependent on TIME_LEFT(t-t'))
+  Because points are linearly distributed
 """
 
 def print_if(v):

@@ -20,7 +20,7 @@ def print_if(v):
 
 
 """
-  Basic test showing how compound and non-compound claims will work
+  Test showing how compound and non-compound claims will work
   Assumes that rewards per epoch are always the same
 """
   
