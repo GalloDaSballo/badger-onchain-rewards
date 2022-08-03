@@ -1,6 +1,11 @@
 from random import seed
 from random import random
 
+"""
+  Test showing how compound and non-compound claims will work
+  Assumes that rewards per epoch are always the same
+"""
+
 EPOCHS_RANGE = 10
 EPOCHS_MIN = 1
 SHARES_DECIMALS = 18
@@ -17,12 +22,6 @@ SHOULD_PRINT = True
 def print_if(v):
   if SHOULD_PRINT:
     print(v)
-
-
-"""
-  Test showing how compound and non-compound claims will work
-  Assumes that rewards per epoch are always the same
-"""
   
 
 def simple_users_sim():

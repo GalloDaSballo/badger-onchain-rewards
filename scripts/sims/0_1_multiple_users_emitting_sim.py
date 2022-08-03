@@ -1,6 +1,11 @@
 from random import seed
 from random import random
 
+"""
+Simulation of user claiming each epoch and contract properly re-computing divisor
+Foundation for other sims
+"""
+
 EPOCHS_RANGE = 10
 EPOCHS_MIN = 1
 SHARES_DECIMALS = 18
@@ -11,11 +16,6 @@ SECONDS_PER_EPOCH = 604800
 REWARD_PER_EPOCH = 10_000 * 10 ** SHARES_DECIMALS ## 10 k ETH example
 USERS_RANGE = 1000
 USERS_MIN = 3
-
-"""
-Simulation of user claiming each epoch and contract properly re-computing divisor
-Foundation for other sims
-"""
 
 def simple_users_sim():
 

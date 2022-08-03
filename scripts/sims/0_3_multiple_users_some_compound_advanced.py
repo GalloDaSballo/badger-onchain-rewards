@@ -1,6 +1,26 @@
 from random import seed
 from random import random
 
+## Write function to calculate total Points for vault
+## Write function to calculate points for this epoch
+
+## Subtract
+
+## Write stuff to recompute the total points (see commented below)
+
+"""
+  - Advanced V1 -> Random Rewards
+  - Equivalent to adding rewards mid epoch per following proof.
+
+  If Dep(x) * TIME_LEFT(t) = y
+  Then
+  Dep(x) * TIME_LEFT(t') = y'
+
+  Where abs(y - y' is dependent on TIME_LEFT(t-t'))
+  Because points are linearly distributed
+"""
+
+
 EPOCHS_RANGE = 10
 EPOCHS_MIN = 2
 SHARES_DECIMALS = 18
@@ -20,27 +40,6 @@ ROUNDS = 10_000
 ## Should the print_if print stuff?
 SHOULD_PRINT = ROUNDS == 1
 
-
-
-
-## Write function to calculate total Points for vault
-## Write function to calculate points for this epoch
-
-## Subtract
-
-## Write stuff to recompute the total points (see commented below)
-
-"""
-  - Advanced V1 -> Random Rewards
-  - Equivalent to adding rewards mid epoch per following proof.
-
-  If Dep(x) * TIME_LEFT(t) = y
-  Then
-  Dep(x) * TIME_LEFT(t') = y'
-
-  Where abs(y - y' is dependent on TIME_LEFT(t-t'))
-  Because points are linearly distributed
-"""
 
 def print_if(v):
   if SHOULD_PRINT:
