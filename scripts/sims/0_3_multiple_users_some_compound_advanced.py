@@ -67,7 +67,7 @@ def simple_users_sim():
     is_claiming = random() >= 0.5
     claimers += 1 if is_claiming else 0
     claiming.append(is_claiming)
-    balance = (int(random() * REWARD_PER_EPOCH) + MIN_REWARDS_PER_EPOCH) * 10 ** SHARES_DECIMALS
+    balance = (int(random() * RANGE) + MIN_SHARES) * 10 ** SHARES_DECIMALS
     balances.append(balance)
 
 
