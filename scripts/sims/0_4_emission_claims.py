@@ -165,12 +165,9 @@ def multi_claim_sim():
   for epoch in range(number_of_epochs):
     divisor = (total_points) ## No subtraction as not self-emitting
 
-    ## TODO: Fix Claim of B, for some reason issues
-
     for user in range(number_of_users):
-      # ## Skip for non-claimers ## TODO: Claim vs non claim
-      # if not (claiming[user]):
-      #   continue
+      ## NOTE: Hunch - no distinction between early and late claimers, as divisor is based on reward points
+
 
       user_total_rewards_fair = rewards_b[epoch] * points[user] // divisor
       user_total_rewards_dust = rewards_b[epoch] * points[user] % divisor
@@ -204,9 +201,7 @@ def multi_claim_sim():
 
 
     for user in range(number_of_users):
-      # ## Skip for non-claimers ## TODO: Account for non-claimers
-      # if not (claiming[user]):
-      #   continue
+      ## NOTE: Hunch - no distinction between early and late claimers, as divisor is based on reward points
       
       user_total_rewards_fair = rewards_c[epoch] * points_b[user][epoch] // divisor
       user_total_rewards_dust = rewards_c[epoch] * points_b[user][epoch] % divisor
