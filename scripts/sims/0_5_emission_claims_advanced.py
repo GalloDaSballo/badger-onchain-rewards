@@ -140,6 +140,7 @@ def multi_claim_sim():
   ## Reward B
   total_rewards_b_float = 0 ## Rewards we can receive
   rewards_b_direct = []
+  total_direct_rewards_b = 0
   contract_points_b_per_epoch = []
   total_supply_b = 0 ## Actual total amount of b
   total_points_b = 0 ## total_supply_b * SECONDS_PER_EPOCH
@@ -152,6 +153,7 @@ def multi_claim_sim():
     reward_b = (int(random() * VAULT_B_EMISSIONS_TO_A) + MIN_VAULT_B_EMISSIONS_TO_A) * 10 ** SHARES_DECIMALS
     rewards_b_direct.append(reward_b)
     total_rewards_b_float += reward_b
+    total_direct_rewards_b += reward_b
     total_supply_b += reward_b
 
     ## Points of b inside of Contract
@@ -248,6 +250,10 @@ def multi_claim_sim():
 
       total_claimed_direct += user_total_rewards_fair
 
+  ## Ensure basic math is correct, all rewards are claimed
+  print(total_claimed_direct / total_direct_rewards_b * 100)
+  assert total_claimed_direct / total_direct_rewards_b * 100 == 100
+
   ## Claim B from B
   ## TODO: WIP
   ## HUNCH: divisor = (total_points - contract_points_per_epoch * (number_of_epochs - epoch))
@@ -314,8 +320,8 @@ def multi_claim_sim():
   ## TODO
 
 
-  print_if("Claimed B")
-  print_if(total_claimed_b / total_rewards_b_float * 100)
+  print("Claimed B")
+  print(total_claimed_b / total_rewards_b_float * 100)
 
   print_if("Dust B")
   print_if(total_rewards_b_float - total_claimed_b)
