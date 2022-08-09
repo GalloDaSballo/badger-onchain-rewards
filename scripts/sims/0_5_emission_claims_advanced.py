@@ -181,7 +181,6 @@ def multi_claim_sim():
   b_hodlers = (int(random() * VAULT_B_HODLERS) + MIN_VAULT_B_EMISSIONS_TO_A) * 10 ** SHARES_DECIMALS
 
   total_supply_b += b_hodlers
-  total_points_b = total_supply_b * SECONDS_PER_EPOCH
 
   ## As ratio
   ## Use Total Supply to calculate ratio here
@@ -198,6 +197,7 @@ def multi_claim_sim():
     ## Also update total supply after accounting the emissions
     total_supply_b += b_self_emission
 
+  total_points_b = total_supply_b * SECONDS_PER_EPOCH
 
   ## TODO: What are exactly the B that you can receive?
   ## They should be Sum(b_direct + %b_to_b)
@@ -222,6 +222,9 @@ def multi_claim_sim():
     
     ## Skip first one
     acc += rewards_b_self_emissions_to_b[epoch] * SECONDS_PER_EPOCH
+  
+  print("self_emitting_rewards_points_b_cumulative")
+  print(self_emitting_rewards_points_b_cumulative)
 
   total_claimed_direct = 0
   ## Claim B
@@ -264,10 +267,12 @@ def multi_claim_sim():
     divisor = total_points_b
     divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch]
 
-    print_if("total_points_b")
-    print_if(total_points_b)
-    print_if("divisor")
-    print_if(divisor)
+    assert divisor <= total_points_b
+
+    print("total_points_b")
+    print(total_points_b)
+    print("divisor")
+    print(divisor)
 
     ## Each user will acc from 0 to N and use this as supporting variable to retain the claims from prev epochs
     ## Quick fix to avoid re-setting old rewards
@@ -281,6 +286,7 @@ def multi_claim_sim():
       old_points = points_b[user][epoch - 1] if epoch > 0 else 0
       points_b[user][epoch] += claimed_points
 
+      ## TODO: Fix compounding accrual
       prev_user_claim_acc[user] += claimed_points
 
       if epoch + 1 < number_of_epochs:
@@ -316,6 +322,7 @@ def multi_claim_sim():
 
   print("Percent Emission of Emitting Claimed")
   print((b_claimable_emissions - total_claimed_self_emissions_b) / b_claimable_emissions * 100)
+
 
   assert b_claimable_emissions >= total_claimed_self_emissions_b
   assert total_rewards_b_float >= total_claimed_b
