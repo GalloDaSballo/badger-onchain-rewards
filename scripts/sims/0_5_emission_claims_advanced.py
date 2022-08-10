@@ -35,7 +35,7 @@ from random import random
 """
 
 EPOCHS_RANGE = 0
-EPOCHS_MIN = 3
+EPOCHS_MIN = 5
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
@@ -51,7 +51,7 @@ NOISE_B_PER_EPOCH = 123123
 MIN_VAULT_B_EMISSIONS_TO_A = 1_000 ## The "true" "base" yield from B -> A (without adding self-emissions)
 VAULT_B_EMISSIONS_TO_A = 100_000 ## 100 k ETH example
 
-VAULT_B_SELF_EMISSIONS = 100_000 ## 100k ETH example
+VAULT_B_SELF_EMISSIONS = 100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
 VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## Inflates total supply but is not added to rewards
 VAULT_B_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions (even from C)
 
@@ -70,7 +70,7 @@ USERS_MIN = 3
 
 
 ## How many simulations to run?
-ROUNDS = 1_000
+ROUNDS = 1
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -178,6 +178,7 @@ def multi_claim_sim():
     ## Increase total Supply
     total_supply_b += b_extra_emissions_epoch
   
+  total_contract_points_b = total_direct_rewards_b * SECONDS_PER_EPOCH
 
   ## Add random extra hodlers that hold B
   b_hodlers = (int(random() * VAULT_B_HODLERS) + MIN_VAULT_B_EMISSIONS_TO_A) * 10 ** SHARES_DECIMALS
@@ -190,10 +191,13 @@ def multi_claim_sim():
   before_emisisons_total_supply_b = total_supply_b
   b_claimable_emissions = 0
 
+  estimate_claimable_per_epoch = []
+
   ## Add Self-Emission % as Reward for Fairness Estimate
   for b_self_emission in rewards_b_self_emissions_to_b:
     ## % of B such that A -> B / totalSupply(B) * Emission
     emission_float = b_self_emission * before_emisisons_rewards_b / before_emisisons_total_supply_b
+    estimate_claimable_per_epoch.append(emission_float)
     total_rewards_b_float += emission_float
     b_claimable_emissions += int(emission_float)
     ## Also update total supply after accounting the emissions
@@ -212,11 +216,22 @@ def multi_claim_sim():
 
   self_emitting_rewards_points_b_cumulative = []
 
+  ## Correction value as those tokens are in the contract but they will not be claimable by anyone
+  ## In other words, we're removing points from rewards from future epochs
+  ## Otherwise these tokens are receiving rewards that you'd be expecting to claim
+  ## In other words, these are the non-circulating rewards
+  ## Which we must remove as only the circulating rewards can receive emissions
+  ## TODO: Move this spiel to contract_points_b_per_epoch
+  directly_claimable_reward_contract_points_corrections = []
+
   for epoch in range(number_of_epochs):
     self_emitting_rewards_points_b_cumulative.append(total_b_emitted_b_points)
+
+    ## Last value of contract_points_b is 
+    directly_claimable_reward_contract_points_corrections.append(total_contract_points_b)
   
   acc = 0
-  
+  acc_direct = 0
   for epoch in range(number_of_epochs):
     if(epoch > 0):
       ## Remove acc
@@ -224,9 +239,14 @@ def multi_claim_sim():
     
     ## Skip first one
     acc += rewards_b_self_emissions_to_b[epoch] * SECONDS_PER_EPOCH
+    acc_direct += contract_points_b_per_epoch[epoch]
+
+    directly_claimable_reward_contract_points_corrections[epoch] -= acc_direct
   
   print("self_emitting_rewards_points_b_cumulative")
   print(self_emitting_rewards_points_b_cumulative)
+
+  assert self_emitting_rewards_points_b_cumulative[0] == total_b_emitted_b_points
 
   total_claimed_direct = 0
   ## Claim B
@@ -266,12 +286,15 @@ def multi_claim_sim():
 
   total_claimed_self_emissions_b = 0
 
+  print("directly_claimable_reward_contract_points_corrections")
+  print(directly_claimable_reward_contract_points_corrections)
+
   ## Percentage of B claimed as percentage of total B claimeable for % of rewards[b][b]
   for epoch in range(number_of_epochs):
     ## No subtraction as rewards are from A which is not self-emitting
-    ## TODO: Remove the points the contract has as effect of self-emission, just like in SIM_04
-    divisor = total_points_b
-    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch]
+    ## DONE: Remove the points the contract has as effect of self-emission, just like in SIM_04
+    ## TODO: Remove the points from future, non-self-emissions to account for circulating tokens that can claim
+    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch] - directly_claimable_reward_contract_points_corrections[epoch]
 
     assert divisor <= total_points_b
 
@@ -279,6 +302,8 @@ def multi_claim_sim():
     print(total_points_b)
     print("divisor")
     print(divisor)
+
+    claimed_this_epoch = 0
 
     ## Each user will acc from 0 to N and use this as supporting variable to retain the claims from prev epochs
     ## Quick fix to avoid re-setting old rewards
@@ -295,13 +320,20 @@ def multi_claim_sim():
       ## TODO: Fix compounding accrual
       prev_user_claim_acc[user] += claimed_points
 
+      assert prev_user_claim_acc[user] > 0
+
       if epoch + 1 < number_of_epochs:
-        ## Port over cumulative claims
+        # Port over cumulative claims
         points_b[user][epoch + 1] += prev_user_claim_acc[user]
 
       total_claimed_b += user_total_rewards_fair
+      claimed_this_epoch += user_total_rewards_fair
       total_claimed_self_emissions_b += user_total_rewards_fair
       total_dust_b += user_total_rewards_dust
+    
+    print("claimed_this_epoch")
+    print(claimed_this_epoch / estimate_claimable_per_epoch[epoch] * 100)
+
 
   ## VERIFY B CLAIMS ARE FAIR AND MAKE SENSE
   ## TODO
