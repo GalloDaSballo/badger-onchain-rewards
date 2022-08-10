@@ -26,7 +26,8 @@ from random import random
 
   TODO: Fix calculation to:
     - Give back "less rewards" directly to direct claimers <- Back to 04 math which is the correct one
-
+    
+    Future Rewards Backwards Claims
     - NEW: 
       Reward Positions will claim their rewards when claimed and distribute to users
         Effectively a Reward is a "Virtual Account" meaning just like any user it's accruing rewards
@@ -44,8 +45,11 @@ from random import random
   - VAULT_C_HODLERS ## Users with direct deposits to C
 """
 
+## NOTE: a 1 epoch test MUST always pass 
+## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
 EPOCHS_RANGE = 0
-EPOCHS_MIN = 1
+EPOCHS_MIN = 2
+
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
@@ -80,7 +84,7 @@ USERS_MIN = 3
 
 
 ## How many simulations to run?
-ROUNDS = 1
+ROUNDS = 1_000
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -206,10 +210,13 @@ def multi_claim_sim():
   ## Add Self-Emission % as Reward for Fairness Estimate
   for b_self_emission in rewards_b_self_emissions_to_b:
     ## % of B such that A -> B / totalSupply(B) * Emission
-    emission_float = b_self_emission * before_emisisons_rewards_b / before_emisisons_total_supply_b
+
+    ## TODO: Figure out why `/` causes assert total_rewards_b_float >= total_claimed_b to fail
+    ## While `//` doesn't
+    emission_float = b_self_emission * before_emisisons_rewards_b // before_emisisons_total_supply_b
     estimate_claimable_per_epoch.append(emission_float)
     total_rewards_b_float += emission_float
-    b_claimable_emissions += int(emission_float)
+    b_claimable_emissions += emission_float
     ## Also update total supply after accounting the emissions
     total_supply_b += b_self_emission
 
@@ -306,7 +313,9 @@ def multi_claim_sim():
     ## No subtraction as rewards are from A which is not self-emitting
     ## DONE: Remove the points the contract has as effect of self-emission, just like in SIM_04
     ## TODO: CHECK: Remove the points from future, non-self-emissions to account for circulating tokens that can claim
-    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch] ##- directly_claimable_reward_contract_points_corrections[epoch]
+    print("self_emitting_rewards_points_b_cumulative[epoch]")
+    print(self_emitting_rewards_points_b_cumulative[epoch])
+    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch]
 
     assert divisor <= total_points_b
 
@@ -345,10 +354,56 @@ def multi_claim_sim():
     print("claimed_this_epoch")
     print(claimed_this_epoch / estimate_claimable_per_epoch[epoch] * 100)
 
+  
+  ## TODO: HUNCH to verify the claim that all rewards missing are to be retroactively claimed by rewards
+  ##  Rewards that earned those points in the past
+  ## TODO -> Points at epoch X should get rewards for epochs [0, X - 1] also
 
-  ## VERIFY B CLAIMS ARE FAIR AND MAKE SENSE
-  ## TODO
+  ## Double for loop, for Reward [x] calculate all rewards from 0 to X - 1 (0 on python, 1 on solidity)
+  total_rewards_accrued_by_pending_reward = 0
+  for epoch_index in range(number_of_epochs):
+    total_unclaimed = rewards_b_direct[epoch_index]
+    total_unclaimed_points = total_unclaimed * SECONDS_PER_EPOCH
 
+    ## Loop only after first epoch as first one doesn't have "accrual issues"
+    if epoch_index > 0:
+      for y in range(epoch_index):
+
+        divisor = total_points_b - self_emitting_rewards_points_b_cumulative[y]
+
+        rewards_earned = rewards_b_self_emissions_to_b[y] * total_unclaimed_points // divisor
+        total_rewards_accrued_by_pending_reward += rewards_earned
+
+  
+  print("Global Ratio")
+  print(total_claimed_b / total_rewards_b_float * 100)
+  print("Updated Emissions Capture Ratio")
+  print((total_claimed_self_emissions_b + total_rewards_accrued_by_pending_reward) / b_claimable_emissions * 100)
+  print("Additional Percent expected")
+  print((total_rewards_accrued_by_pending_reward) / b_claimable_emissions * 100)
+
+  print("Updated Global Ratio ")
+  print((total_claimed_b + total_rewards_accrued_by_pending_reward) / total_rewards_b_float * 100)
+
+  assert total_claimed_b + total_rewards_accrued_by_pending_reward <= total_rewards_b_float
+  assert b_claimable_emissions >= total_claimed_self_emissions_b + total_rewards_accrued_by_pending_reward
+
+
+  print("Claimed B")
+  print(total_claimed_b / total_rewards_b_float * 100)
+
+  print_if("Dust B")
+  print_if(total_rewards_b_float - total_claimed_b)
+
+  print("Percent Emission of Emitting Claimed")
+  print((total_claimed_self_emissions_b) / b_claimable_emissions * 100)
+
+
+  ## We cannot claim more than total_claimed_self_emissions_b as that means the contract has been broken 
+  assert b_claimable_emissions >= total_claimed_self_emissions_b
+  assert total_rewards_b_float >= total_claimed_b
+
+  return (total_rewards_b_float - total_claimed_b) / total_rewards_b_float
 
 
 
@@ -363,23 +418,7 @@ def multi_claim_sim():
   ## TODO
 
 
-  print("Claimed B")
-  print(total_claimed_b / total_rewards_b_float * 100)
 
-  print_if("Dust B")
-  print_if(total_rewards_b_float - total_claimed_b)
-
-  print("Percent Emission of Emitting Claimed")
-  print((b_claimable_emissions - total_claimed_self_emissions_b) / b_claimable_emissions * 100)
-
-
-  assert b_claimable_emissions >= total_claimed_self_emissions_b
-  assert total_rewards_b_float >= total_claimed_b
-
-  # print_if("Claimed C")
-  # print_if(total_claimed_c / total_rewards_c * 100)
-
-  return (total_rewards_b_float - total_claimed_b) / total_claimed_b
 
   # return (total_rewards_c - total_claimed_c) / total_rewards_c
 
