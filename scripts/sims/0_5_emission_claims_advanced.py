@@ -24,6 +24,16 @@ from random import random
   - VAULT_B_EMISSIONS_TO_OTHER ## Emissions of B for another random vault (Vault D)
   - VAULT_B_HODLERS ## Users with direct deposits to B
 
+  TODO: Fix calculation to:
+    - Give back "less rewards" directly to direct claimers <- Back to 04 math which is the correct one
+
+    - NEW: 
+      Reward Positions will claim their rewards when claimed and distribute to users
+        Effectively a Reward is a "Virtual Account" meaning just like any user it's accruing rewards
+        Because of this, when claiming, we need to claim the rewards that this "Virtual Position" has accrued
+        Doing this allows us to never correct the divisor to unfair / overly fair levels, at the cost of computational complexity
+        NOTE: At this time  I believe this to be the mathematically correct solution, I
+
 
   TODO: ADD C
 
