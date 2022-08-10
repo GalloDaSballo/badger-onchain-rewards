@@ -35,7 +35,7 @@ from random import random
 """
 
 EPOCHS_RANGE = 0
-EPOCHS_MIN = 5
+EPOCHS_MIN = 50
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
@@ -293,7 +293,7 @@ def multi_claim_sim():
   for epoch in range(number_of_epochs):
     ## No subtraction as rewards are from A which is not self-emitting
     ## DONE: Remove the points the contract has as effect of self-emission, just like in SIM_04
-    ## TODO: Remove the points from future, non-self-emissions to account for circulating tokens that can claim
+    ## TODO: CHECK: Remove the points from future, non-self-emissions to account for circulating tokens that can claim
     divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch] - directly_claimable_reward_contract_points_corrections[epoch]
 
     assert divisor <= total_points_b
@@ -314,7 +314,6 @@ def multi_claim_sim():
       claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
       ## Add new rewards to user points for next epoch
       ## Port over old points (cumulative) + add the claimed this epoch
-      old_points = points_b[user][epoch - 1] if epoch > 0 else 0
       points_b[user][epoch] += claimed_points
 
       ## TODO: Fix compounding accrual
