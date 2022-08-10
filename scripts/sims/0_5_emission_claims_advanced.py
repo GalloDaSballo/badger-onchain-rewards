@@ -35,7 +35,7 @@ from random import random
 """
 
 EPOCHS_RANGE = 0
-EPOCHS_MIN = 50
+EPOCHS_MIN = 1
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
@@ -240,13 +240,15 @@ def multi_claim_sim():
     ## Skip first one
     acc += rewards_b_self_emissions_to_b[epoch] * SECONDS_PER_EPOCH
     acc_direct += contract_points_b_per_epoch[epoch]
-
     directly_claimable_reward_contract_points_corrections[epoch] -= acc_direct
-  
-  print("self_emitting_rewards_points_b_cumulative")
-  print(self_emitting_rewards_points_b_cumulative)
 
   assert self_emitting_rewards_points_b_cumulative[0] == total_b_emitted_b_points
+  ## Verify that we're reducing rewards from first epoch
+  assert directly_claimable_reward_contract_points_corrections[0] == total_contract_points_b - contract_points_b_per_epoch[0]
+  ## End is 0 as all tokens are circulating
+  assert directly_claimable_reward_contract_points_corrections[-1] == 0 
+  ## Penultimate should be equal to last set of points in contract
+  # assert directly_claimable_reward_contract_points_corrections[-2] == contract_points_b_per_epoch[-1]
 
   total_claimed_direct = 0
   ## Claim B
@@ -255,7 +257,6 @@ def multi_claim_sim():
 
     for user in range(number_of_users):
       ## NOTE: Hunch - no distinction between early and late claimers, as divisor is based on reward points
-
       user_total_rewards_fair = rewards_b_direct[epoch] * points[user] // divisor
       user_total_rewards_dust = rewards_b_direct[epoch] * points[user] % divisor
 
@@ -273,6 +274,7 @@ def multi_claim_sim():
   ## Ensure basic math is correct, all rewards are claimed
   print(total_claimed_direct / total_direct_rewards_b * 100)
   assert total_claimed_direct / total_direct_rewards_b * 100 == 100
+  assert total_direct_rewards_b >= total_claimed_direct ## Check of fairness
 
   ## Claim B from B
   ## TODO: WIP
@@ -294,7 +296,7 @@ def multi_claim_sim():
     ## No subtraction as rewards are from A which is not self-emitting
     ## DONE: Remove the points the contract has as effect of self-emission, just like in SIM_04
     ## TODO: CHECK: Remove the points from future, non-self-emissions to account for circulating tokens that can claim
-    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch] - directly_claimable_reward_contract_points_corrections[epoch]
+    divisor = total_points_b - self_emitting_rewards_points_b_cumulative[epoch] ##- directly_claimable_reward_contract_points_corrections[epoch]
 
     assert divisor <= total_points_b
 
