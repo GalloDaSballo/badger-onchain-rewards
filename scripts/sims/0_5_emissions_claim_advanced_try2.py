@@ -47,7 +47,7 @@ from random import random
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
 EPOCHS_RANGE = 0
-EPOCHS_MIN = 3
+EPOCHS_MIN = 10
 
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
@@ -79,7 +79,7 @@ VAULT_C_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions f
 
 
 USERS_RANGE = 0
-USERS_MIN = 2
+USERS_MIN = 2000
 
 
 ## How many simulations to run?
@@ -349,10 +349,12 @@ def multi_claim_sim():
   ## Treat Future Rewards as if they are accounts, claiming each epoch and using those claims for each subsequent claim
 
   virtual_account_rewards = 0
-
+  acc_total_rewards_used_check = 0
   for epoch_index in range(number_of_epochs):
     total_unclaimed = rewards_b[epoch_index] ## Unclaimed are future rewards receiving emissions from previous epochs
     total_unclaimed_points = total_unclaimed * SECONDS_PER_EPOCH
+
+    acc_total_rewards_used_check += total_unclaimed
 
     if epoch_index > 0:
       for y in range(epoch_index):
@@ -366,6 +368,8 @@ def multi_claim_sim():
         rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
 
         virtual_account_rewards += rewards_earned
+
+  assert acc_total_rewards_used_check == total_rewards_b
 
   print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
   print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)    
