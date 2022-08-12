@@ -78,12 +78,12 @@ VAULT_C_EMISSIONS_TO_OTHER = 1_000_000 ## Inflates total supply but is not added
 VAULT_C_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions from C
 
 
-USERS_RANGE = 10
-USERS_MIN = 3
+USERS_RANGE = 0
+USERS_MIN = 2
 
 
 ## How many simulations to run?
-ROUNDS = 1_000
+ROUNDS = 1
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -321,6 +321,30 @@ def multi_claim_sim():
 
   ## NOTE: Direct B -> B' Claim will fail for now, as you're not getting the many emissions that are being earned by future rewards 
 
+  print("Percent of emissions claimed via Direct Claims")
+  print(total_claimed_b / total_emissions_b_b * 100)
+
+
+  # ###### TEMP TEST ######
+  ## NOTE: This is plain wrong, but can be helpful
+  # ## Intermediary step, get the points that were not claimed and prove that those points will get all remaining emissions
+  # unclaimed_b = total_supply_b - total_claimed_b ## NOTE: This will break if we add "noise"
+  # points_unclaimed = unclaimed_b * SECONDS_PER_EPOCH
+
+  # rewards_unclaimed = 0
+  # for epoch_index in range(number_of_epochs):
+  #   virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch] ## Same as for B -> B'
+
+  #   rewards_earned = emissions_b_b[epoch_index] * points_unclaimed / virtual_divisor
+
+  #   rewards_unclaimed += rewards_earned
+  
+  # print("(total_claimed_b + rewards_unclaimed) / total_supply_b")
+  # print((total_claimed_b + rewards_unclaimed) / total_supply_b)
+  # assert total_claimed_b + rewards_unclaimed == total_supply_b
+
+
+
   ###### VIRTUAL ACCOUNTS ######
   ## Treat Future Rewards as if they are accounts, claiming each epoch and using those claims for each subsequent claim
 
@@ -330,23 +354,16 @@ def multi_claim_sim():
     total_unclaimed = rewards_b[epoch_index] ## Unclaimed are future rewards receiving emissions from previous epochs
     total_unclaimed_points = total_unclaimed * SECONDS_PER_EPOCH
 
-    print("epoch_index")
-    print(epoch_index)
-
     if epoch_index > 0:
       for y in range(epoch_index):
-        print("y")
-        print(y)
+
         ## Calculate rewards earned for epochs before `epoch_index`
         virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch] ## Same as for B -> B'
 
-        print("print(total_unclaimed / virtual_divisor) * 100")
-        print(total_unclaimed / virtual_divisor * 100)
-
         print("total_unclaimed_points / divisor")
-        print(total_unclaimed_points / virtual_divisor * 100)
+        print((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
 
-        rewards_earned = emissions_b_b[y] * total_unclaimed_points / virtual_divisor
+        rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
 
         virtual_account_rewards += rewards_earned
 
