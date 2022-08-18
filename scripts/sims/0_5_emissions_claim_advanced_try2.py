@@ -191,8 +191,6 @@ def multi_claim_sim():
     total_rewards_b += reward_b
     total_supply_b += reward_b
 
-    ### Extra "noise stuff" to make simulation more accurate ###
-     
     ## Self-Emission B -> B - Only A% of these are claimable as reward, rest belongs to other depositors
     b_self_emissions_epoch = (int(random() * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
 
@@ -201,6 +199,9 @@ def multi_claim_sim():
 
     ## Increase total Supply
     total_supply_b += b_self_emissions_epoch
+
+
+     ### Extra "noise stuff" to make simulation more accurate ###
 
     ## Emissions to another vault, inflate total_supply, do not increase rewards
     ## TODO: Emissiosn to Another Vault D -> B
