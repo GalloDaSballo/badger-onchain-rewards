@@ -46,8 +46,8 @@ from random import random
 """
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
-EPOCHS_RANGE = 0
-EPOCHS_MIN = 10
+EPOCHS_RANGE = 0 ## Set to 0 to test specific epoch amounts
+EPOCHS_MIN = 1
 
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
@@ -373,7 +373,10 @@ def multi_claim_sim():
 
   print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
   print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)    
-  assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100  
+  assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100
+
+  ## Amount (total - claimed) / total = approx of rounding errors
+  return (total_emissions_b_b - (total_claimed_self_emissions_b + virtual_account_rewards)) / total_emissions_b_b
 
 
 
