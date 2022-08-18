@@ -2,6 +2,9 @@ from random import seed
 from random import random
 
 """
+  Visualization:
+    https://miro.com/app/board/uXjVPfL1y3I=/
+  
   Given TokenA -> RewardB -> RewardC
 
   General Case 2) Random Many to Many some are self-emitting (question is, do we need extra math or not?)
@@ -47,7 +50,7 @@ from random import random
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
 EPOCHS_RANGE = 0 ## Set to 0 to test specific epoch amounts
-EPOCHS_MIN = 1
+EPOCHS_MIN = 10
 
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
@@ -64,12 +67,19 @@ NOISE_B_PER_EPOCH = 123123
 MIN_VAULT_B_REWARDS_TO_A = 1_000 ## The "true" "base" yield from B -> A (without adding self-emissions)
 VAULT_B_REWARDS_TO_A = 100_000 ## 100 k ETH example
 
+VAULT_B_MIN_SELF_EMISSION = 0
 VAULT_B_SELF_EMISSIONS = 100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
-VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## Inflates total supply but is not added to rewards
-VAULT_B_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions (even from C)
+VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## TODO Inflates total supply but is not added to rewards
+VAULT_B_HODLERS = 1_000_000 ## TODO Inflates total supply and dilutes all emissions (even from C)
+
+## TEMP: Override to zero to test only direct claims
+
+# VAULT_B_SELF_EMISSIONS = 0
+# VAULT_B_EMISSIONS_TO_OTHER = 0
+# VAULT_B_HODLERS = 0
 
 
-### C VARS ###
+### C VARS - TODO ###
 MIN_VAULT_C_EMISSIONS_TO_B = 1_000 ## 10 k ETH example
 VAULT_C_EMISSIONS_TO_B = 100_000 ## 100 k ETH example
 
@@ -83,14 +93,14 @@ USERS_MIN = 2000
 
 
 ## How many simulations to run?
-ROUNDS = 1
+ROUNDS = 1_000
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
 
 def print_if(v):
   if SHOULD_PRINT:
-    print(v)
+    print_if(v)
 
 def multi_claim_sim():
 
@@ -184,7 +194,7 @@ def multi_claim_sim():
     ### Extra "noise stuff" to make simulation more accurate ###
      
     ## Self-Emission B -> B - Only A% of these are claimable as reward, rest belongs to other depositors
-    b_self_emissions_epoch = (int(random() * VAULT_B_SELF_EMISSIONS) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
+    b_self_emissions_epoch = (int(random() * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
 
     emissions_b_b.append(b_self_emissions_epoch)
     total_emissions_b_b += b_self_emissions_epoch
@@ -215,10 +225,10 @@ def multi_claim_sim():
   assert acc_verify_total_rewards == total_rewards_b
   assert acc_verify_total_emissions == total_emissions_b_b
 
-  print("Ratio for Rewards vs Total Supply")
-  print(acc_verify_total_rewards / total_supply_b * 100)
-  print("Ratio for Emissions vs Total Supply")
-  print(acc_verify_total_emissions / total_supply_b * 100)
+  print_if("Ratio for Rewards vs Total Supply")
+  print_if(acc_verify_total_rewards / total_supply_b * 100)
+  print_if("Ratio for Emissions vs Total Supply")
+  print_if(acc_verify_total_emissions / total_supply_b * 100)
 
 
   ##### CLAIM B ######
@@ -249,7 +259,7 @@ def multi_claim_sim():
   assert total_rewards_b >= total_claimed_direct ## Check of fairness
 
 
-  ###### Claim B from B #######
+  ###### Claim B from B - B -> B' #######
 
   total_points_b = total_supply_b * SECONDS_PER_EPOCH
 
@@ -308,7 +318,7 @@ def multi_claim_sim():
       ## Compounding accrual
       prev_user_claim_acc[user] += claimed_points
 
-      assert prev_user_claim_acc[user] > 0
+      # assert prev_user_claim_acc[user] > 0
 
       if epoch + 1 < number_of_epochs:
         # Port over cumulative claims
@@ -320,9 +330,10 @@ def multi_claim_sim():
       total_dust_b += user_total_rewards_dust
 
   ## NOTE: Direct B -> B' Claim will fail for now, as you're not getting the many emissions that are being earned by future rewards 
-
-  print("Percent of emissions claimed via Direct Claims")
-  print(total_claimed_b / total_emissions_b_b * 100)
+  
+  if total_emissions_b_b > 0:
+    print_if("Percent of emissions claimed via Direct Claims")
+    print_if(total_claimed_b / total_emissions_b_b * 100)
 
 
   # ###### TEMP TEST ######
@@ -339,9 +350,11 @@ def multi_claim_sim():
 
   #   rewards_unclaimed += rewards_earned
   
-  # print("(total_claimed_b + rewards_unclaimed) / total_supply_b")
-  # print((total_claimed_b + rewards_unclaimed) / total_supply_b)
+  # print_if("(total_claimed_b + rewards_unclaimed) / total_supply_b")
+  # print_if((total_claimed_b + rewards_unclaimed) / total_supply_b)
   # assert total_claimed_b + rewards_unclaimed == total_supply_b
+
+  ## Test: Are Rewards Getting all emissions as expected?
 
 
 
@@ -356,14 +369,21 @@ def multi_claim_sim():
 
     acc_total_rewards_used_check += total_unclaimed
 
+    ## HUNCH: I A -> B, is claiming the rewards
+    ## B -> B' -> Claiming the emissions via the rewards
+    ## THIS: Get the unclaimed rewards, and claim the emissions from them.
+    ## Since we have A -> B and B -> B':
+    ## A -> Works in spite of B -> B'
+    ## While B -> B' requires the B claimable directly and the B' claimed retroactively
+
     if epoch_index > 0:
       for y in range(epoch_index):
 
         ## Calculate rewards earned for epochs before `epoch_index`
         virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch] ## Same as for B -> B'
 
-        print("total_unclaimed_points / divisor")
-        print((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
+        print_if("total_unclaimed_points / divisor")
+        print_if((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
 
         rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
 
@@ -371,12 +391,14 @@ def multi_claim_sim():
 
   assert acc_total_rewards_used_check == total_rewards_b
 
-  print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
-  print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)    
-  assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100
+  if total_emissions_b_b > 0:
+    print_if("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
+    print_if((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
+    assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100
 
   ## Amount (total - claimed) / total = approx of rounding errors
-  return (total_emissions_b_b - (total_claimed_self_emissions_b + virtual_account_rewards)) / total_emissions_b_b
+  total_b_obtainable = total_emissions_b_b + total_rewards_b
+  return (total_b_obtainable - (total_claimed_b + total_claimed_self_emissions_b + virtual_account_rewards)) / (total_b_obtainable)
 
 
 
@@ -393,6 +415,11 @@ def main():
     else:
       print("Unfair")
       print(res)
+
+      ## NOTE: During dev I've had instances of tests that were unfair
+      ## TODO: Investigate the why
+      ## 1.250985445001193e-16
+      ## 1.2728526341344986e-16
     
   print("Overall number of passing tests")
   print(fair_count)
