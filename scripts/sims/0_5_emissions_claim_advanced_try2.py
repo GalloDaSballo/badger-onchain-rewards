@@ -372,7 +372,7 @@ def multi_claim_sim():
 
   acc = 0
   for epoch in range(number_of_epochs):
-    ## Skip first one
+    ## Remove current epoch as we already claimed in A -> B -> B'
     acc += rewards_b[epoch] * SECONDS_PER_EPOCH 
 
     ## Remove acc
