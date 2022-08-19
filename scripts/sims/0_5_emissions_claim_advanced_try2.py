@@ -232,6 +232,7 @@ def multi_claim_sim():
   print_if(acc_verify_total_emissions / total_supply_b * 100)
 
 
+
   ##### CLAIM B ######
   total_claimed_direct = 0
 
@@ -277,9 +278,8 @@ def multi_claim_sim():
   
   acc = 0
   for epoch in range(number_of_epochs):
-    if(epoch > 0):
-      ## Remove acc
-      emissions_b_b_points_cumulative_per_epoch[epoch] -= acc
+    ## Remove acc
+    emissions_b_b_points_cumulative_per_epoch[epoch] -= acc
     
     ## Skip first one
     acc += emissions_b_b[epoch] * SECONDS_PER_EPOCH
@@ -292,6 +292,9 @@ def multi_claim_sim():
 
   ## Last Epoch Only points left are from last epoch
   assert emissions_b_b_points_cumulative_per_epoch[-1] == emissions_b_b[-1] * SECONDS_PER_EPOCH
+
+
+
 
   ## Actually Claim B -> B'
 
@@ -361,14 +364,32 @@ def multi_claim_sim():
 
   ###### VIRTUAL ACCOUNTS ######
   ## Treat Future Rewards as if they are accounts, claiming each epoch and using those claims for each subsequent claim
+  total_rewards_points_b = total_rewards_b * SECONDS_PER_EPOCH ## All points for all rewards
+  unclaimable_points_rewards_b_epoch = []
+
+  for epoch_index in range(number_of_epochs):
+    unclaimable_points_rewards_b_epoch.append(total_rewards_points_b)
+
+  acc = 0
+  for epoch in range(number_of_epochs):
+    ## Skip first one
+    acc += rewards_b[epoch] * SECONDS_PER_EPOCH 
+
+    ## Remove acc
+    unclaimable_points_rewards_b_epoch[epoch] -= acc
+    
+
+
+  
+  ## First one is equal to all points
+  assert unclaimable_points_rewards_b_epoch[0] == total_rewards_points_b - rewards_b[0] * SECONDS_PER_EPOCH
+  ## Last is equal to 0
+  assert unclaimable_points_rewards_b_epoch[-1] == 0
+  
 
   virtual_account_rewards = 0
-  acc_total_rewards_used_check = 0
   for epoch_index in range(number_of_epochs):
-    total_unclaimed = rewards_b[epoch_index] ## Unclaimed are future rewards receiving emissions from previous epochs
-    total_unclaimed_points = total_unclaimed * SECONDS_PER_EPOCH
-
-    acc_total_rewards_used_check += total_unclaimed
+    total_unclaimed_points = unclaimable_points_rewards_b_epoch[epoch_index] ## Unclaimed are future rewards receiving emissions from previous epochs
 
     ## HUNCH: I A -> B, is claiming the rewards
     ## B -> B' -> Claiming the emissions via the rewards
@@ -377,24 +398,25 @@ def multi_claim_sim():
     ## A -> Works in spite of B -> B'
     ## While B -> B' requires the B claimable directly and the B' claimed retroactively
 
-    if epoch_index > 0:
-      for y in range(epoch_index):
+    ## Calculate rewards earned for epochs before `epoch_index`
+    virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch_index] ## Same as for B -> B'
 
-        ## Calculate rewards earned for epochs before `epoch_index`
-        virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch] ## Same as for B -> B'
+    print_if("total_unclaimed_points / divisor")
+    print_if((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
 
-        print_if("total_unclaimed_points / divisor")
-        print_if((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
+    rewards_earned = emissions_b_b[epoch_index] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
 
-        rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
+    virtual_account_rewards += rewards_earned
 
-        virtual_account_rewards += rewards_earned
-
-  assert acc_total_rewards_used_check == total_rewards_b
-
+  ## Use if in case you test with zero-emissions
   if total_emissions_b_b > 0:
-    print_if("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
-    print_if((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
+    print("total_claimed_self_emissions_b")    
+    print(total_claimed_self_emissions_b / total_emissions_b_b * 100)
+    print("virtual_account_rewards")    
+    print(virtual_account_rewards / total_emissions_b_b * 100)
+
+    print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
+    print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
     assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100
 
   ## Amount (total - claimed) / total = approx of rounding errors
