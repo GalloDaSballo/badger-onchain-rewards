@@ -50,12 +50,12 @@ from random import random
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
 EPOCHS_RANGE = 0 ## Set to 0 to test specific epoch amounts
-EPOCHS_MIN = 10
+EPOCHS_MIN = 3
 
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
-SECONDS_PER_EPOCH = 604800
+SECONDS_PER_EPOCH = 1 ##604800
 
 ## Amount of extra B that doesn't belong to the emissions from Vault A ()
 ## TODO: Think about this.
@@ -68,7 +68,7 @@ MIN_VAULT_B_REWARDS_TO_A = 1_000 ## The "true" "base" yield from B -> A (without
 VAULT_B_REWARDS_TO_A = 100_000 ## 100 k ETH example
 
 VAULT_B_MIN_SELF_EMISSION = 0
-VAULT_B_SELF_EMISSIONS = 100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
+VAULT_B_SELF_EMISSIONS = 10000 ##100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
 VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## TODO Inflates total supply but is not added to rewards
 VAULT_B_HODLERS = 1_000_000 ## TODO Inflates total supply and dilutes all emissions (even from C)
 
@@ -89,18 +89,18 @@ VAULT_C_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions f
 
 
 USERS_RANGE = 0
-USERS_MIN = 2000
+USERS_MIN = 1
 
 
 ## How many simulations to run?
-ROUNDS = 1_000
+ROUNDS = 1
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
 
 def print_if(v):
   if SHOULD_PRINT:
-    print_if(v)
+    print(v)
 
 def multi_claim_sim():
 
@@ -185,14 +185,15 @@ def multi_claim_sim():
   total_supply_b = 0 ## Actual total amount of b
 
   for epoch in range(number_of_epochs):
-    reward_b = (int(random() * VAULT_B_REWARDS_TO_A) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
+    reward_b = (int(0.5 * VAULT_B_REWARDS_TO_A) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
     rewards_b.append(reward_b)
 
     total_rewards_b += reward_b
     total_supply_b += reward_b
 
     ## Self-Emission B -> B - Only A% of these are claimable as reward, rest belongs to other depositors
-    b_self_emissions_epoch = (int(random() * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
+    b_self_emissions_epoch = (int((0.5 + epoch / 10) * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
+    print_if('Epoch' + str(epoch) + ':b_emit_b=' + str(b_self_emissions_epoch // 10 ** SHARES_DECIMALS) + ',reward_b=' + str(reward_b // 10 ** SHARES_DECIMALS))
 
     emissions_b_b.append(b_self_emissions_epoch)
     total_emissions_b_b += b_self_emissions_epoch
@@ -302,28 +303,39 @@ def multi_claim_sim():
   prev_user_claim_acc = []
   for user in range(number_of_users):
     prev_user_claim_acc.append(0)
-
+  
+  user_claimed_per_epoch = []
+  for user in range(number_of_users):
+    temp_list = []
+    for epoch in range(number_of_epochs):
+      temp_list.append(0)    
+    user_claimed_per_epoch.append(temp_list)
+    
   for epoch in range(number_of_epochs):
     divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch]
-
+    print_if('Epoch' + str(epoch) + ':total_points_b=' + str(total_points_b // 10 ** SHARES_DECIMALS) + ',emissions_b_b_points_cumulative_per_epoch=' + str(emissions_b_b_points_cumulative_per_epoch[epoch] // 10 ** SHARES_DECIMALS))
+    
     for user in range(number_of_users):
-
+      
       user_total_rewards_fair = emissions_b_b[epoch] * points_b[user][epoch] // divisor
       user_total_rewards_dust = emissions_b_b[epoch] * points_b[user][epoch] % divisor
 
       claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
+      print_if('Epoch' + str(epoch) + ':claimed_points=' + str(claimed_points // 10 ** SHARES_DECIMALS))
       ## Add new rewards to user points for next epoch
       ## Port over old points (cumulative) + add the claimed this epoch
       points_b[user][epoch] += claimed_points
 
       ## Compounding accrual
       prev_user_claim_acc[user] += claimed_points
+      user_claimed_per_epoch[user][epoch] = claimed_points
 
       # assert prev_user_claim_acc[user] > 0
 
       if epoch + 1 < number_of_epochs:
         # Port over cumulative claims
-        points_b[user][epoch + 1] += prev_user_claim_acc[user]
+        points_b[user][epoch + 1] += prev_user_claim_acc[user] + claimed_points * (rewards_b[epoch + 1] / rewards_b[epoch])
+        print_if('Epoch' + str(epoch) + ':p_b=' + str(points_b[user][epoch] // 10 ** SHARES_DECIMALS) + ',p_b_next=' + str(points_b[user][epoch + 1] // 10 ** SHARES_DECIMALS) + ',prev_user_claim_acc=' +str(prev_user_claim_acc[user] // 10 ** SHARES_DECIMALS))
 
 
       total_claimed_b += user_total_rewards_fair
@@ -376,26 +388,32 @@ def multi_claim_sim():
     ## Since we have A -> B and B -> B':
     ## A -> Works in spite of B -> B'
     ## While B -> B' requires the B claimable directly and the B' claimed retroactively
-
+    
+    virtual_account_rewards_per_epoch = 0
     if epoch_index > 0:
       for y in range(epoch_index):
 
         ## Calculate rewards earned for epochs before `epoch_index`
-        virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch] ## Same as for B -> B'
+        virtual_divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[y] ## Same as for B -> B'
 
         print_if("total_unclaimed_points / divisor")
-        print_if((total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor * 100)
+        print_if((total_unclaimed_points + virtual_account_rewards_per_epoch * SECONDS_PER_EPOCH) / virtual_divisor * 100)
 
-        rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards * SECONDS_PER_EPOCH) / virtual_divisor
+        rewards_earned = emissions_b_b[y] * (total_unclaimed_points + virtual_account_rewards_per_epoch * SECONDS_PER_EPOCH) / virtual_divisor
 
+        virtual_account_rewards_per_epoch += rewards_earned
         virtual_account_rewards += rewards_earned
+        
+        print_if('Epoch' + str(epoch_index) + '-' + str(y) + ':emissions_b_b=' + str(emissions_b_b[y] // 10 ** SHARES_DECIMALS) + ',total_unclaimed_points=' + str(total_unclaimed_points // 10 ** SHARES_DECIMALS) + ',virtual_divisor=' + str(virtual_divisor // 10 ** SHARES_DECIMALS) + ',virtual_account_rewards=' + str(virtual_account_rewards // 10 ** SHARES_DECIMALS) + ',rewards_earned=' + str(rewards_earned // 10 ** SHARES_DECIMALS) + ',virtual_account_rewards_per_epoch=' + str(virtual_account_rewards_per_epoch // 10 ** SHARES_DECIMALS))
 
   assert acc_total_rewards_used_check == total_rewards_b
 
   if total_emissions_b_b > 0:
-    print_if("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
-    print_if((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
-    assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 == 100
+    print_if("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")   
+    print_if((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100) 
+    emission_b_ratio = (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100
+    print_if('total_claimed_self_emissions_b=' + str(total_claimed_self_emissions_b // 10 ** SHARES_DECIMALS) + ',virtual_account_rewards=' + str(virtual_account_rewards // 10 ** SHARES_DECIMALS) + ',total_emissions_b_b=' + str(total_emissions_b_b // 10 ** SHARES_DECIMALS))
+    assert emission_b_ratio == 100
 
   ## Amount (total - claimed) / total = approx of rounding errors
   total_b_obtainable = total_emissions_b_b + total_rewards_b
@@ -408,6 +426,7 @@ def multi_claim_sim():
 
 
 def main():
+
   fair_count = 0
   for x in range(ROUNDS):
     res = multi_claim_sim()
@@ -426,3 +445,6 @@ def main():
   print(fair_count)
   print("Overall Percent of passing tests")
   print(fair_count / ROUNDS * 100)
+  
+if __name__ == "__main__":
+    main()
