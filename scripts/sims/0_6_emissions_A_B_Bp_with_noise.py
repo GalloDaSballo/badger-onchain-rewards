@@ -75,14 +75,17 @@ NOISE_B_PER_EPOCH = 123123
 MIN_VAULT_B_REWARDS_TO_A = 400 ## The "true" "base" yield from B -> A (without adding self-emissions)
 VAULT_B_REWARDS_TO_A = 100_000 ## 100 k ETH example
 
+## B'
 VAULT_B_MIN_SELF_EMISSION = 500
 VAULT_B_SELF_EMISSIONS = 1_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
-VAULT_B_MIN_REWARDS_TO_OTHER = 100 ## NOTE: THIS IS THE ISSUE
-VAULT_B_REWARDS_TO_OTHER = 100_000 ## TODO Inflates total supply but is not added to rewards
+
+## Additional B Rewards (We call them D to separate)
+VAULT_B_MIN_REWARDS_TO_OTHER = 100
+VAULT_B_REWARDS_TO_OTHER = 100_000 ## Inflates total supply but is not added to rewards
 
 ## NOTE: Unused
 ## NOTE: See Math to prove we don't need as long as we have `VAULT_B_REWARDS_TO_OTHER`
-VAULT_B_HODLERS = 0 
+# VAULT_B_HODLERS = 0 
 
 
 ### C VARS - TODO ###
