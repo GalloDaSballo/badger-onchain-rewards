@@ -40,7 +40,7 @@ Where B and B' are not all for the depositors of A
         Doing this allows us to never correct the divisor to unfair / overly fair levels, at the cost of computational complexity
         NOTE: At this time  I believe this to be the mathematically correct solution
 
-  TODO: Add non-random version which will help with debugging
+  - Add non-random version which will help with debugging
 
 
   TODO: ADD C
