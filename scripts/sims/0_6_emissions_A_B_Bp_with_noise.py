@@ -14,16 +14,15 @@ from random import random
          -> B from B -> C from B from B
                    C -> C from C
                    C -> C from C from B from B
-  
 
-  This simulates
-    A -> B -> B'
+This Simulates A -> B -> B'
+Where B and B' are not all for the depositors of A
 
   Token A can be Self-emitting or not (shouldn't matter) - TotalPoints
   (TODO: Math to prove self-emitting is reduceable to this case)
 
   
-  Working on B first to reach POC
+  NOTE: Working on B first to reach POC
 
   Token B self emits, is also emitted by Vault D and some people hold token B
   - VAULT_B_REWARDS_TO_A
@@ -73,7 +72,8 @@ VAULT_B_REWARDS_TO_A = 100_000 ## 100 k ETH example
 
 VAULT_B_MIN_SELF_EMISSION = 0
 VAULT_B_SELF_EMISSIONS = 100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
-VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## TODO Inflates total supply but is not added to rewards
+VAULT_B_MIN_REWARDS_TO_OTHER = 0
+VAULT_B_REWARDS_TO_OTHER = 1_000_000 ## TODO Inflates total supply but is not added to rewards
 VAULT_B_HODLERS = 1_000_000 ## TODO Inflates total supply and dilutes all emissions (even from C)
 
 ## TEMP: Override to zero to test only direct claims
@@ -188,6 +188,10 @@ def multi_claim_sim():
 
   total_supply_b = 0 ## Actual total amount of b
 
+  
+  noise_rewards_b = []
+  total_noise_rewards_b = 0
+
   for epoch in range(number_of_epochs):
     reward_b = (int(random() * VAULT_B_REWARDS_TO_A) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
     rewards_b.append(reward_b)
@@ -205,14 +209,29 @@ def multi_claim_sim():
     total_supply_b += b_self_emissions_epoch
 
 
-     ### Extra "noise stuff" to make simulation more accurate ###
+    ### Extra "noise stuff" to make simulation more accurate ###
+
+    ## B Total Supply Inflated
+    ## NOTE: Per this discussion: https://miro.com/app/board/uXjVPfL1y3I=/?share_link_id=823158446929
+    ## We don't need to inflate totalSupply additionally
+    ## As the case of A -> B -> B'
+    ## And D -> B -> B' already modifies totalSupply
+    ## And adding further noise doesn't prove anything else
+    ## Beside the fact that the math for A and !A works as !A being D or being D + H is the same
+    ## As cD + cD = D === cD for some c
 
     ## Emissions to another vault, inflate total_supply, do not increase rewards
-    ## TODO: Emissiosn to Another Vault D -> B
+    ## Rewards to Another Vault D -> B
 
-    ## TODO: B Total Supply Inflated
+    b_noise_rewards_epoch = (int(random() * VAULT_B_REWARDS_TO_OTHER) + VAULT_B_MIN_REWARDS_TO_OTHER) * 10 ** SHARES_DECIMALS
+    noise_rewards_b.append(b_noise_rewards_epoch)
+    noise_rewards_b += noise_rewards_b
+
+    total_supply_b += noise_rewards_b
+
+   
     
-    ## Store them for math late
+    ## Store them for math later
 
     
 
