@@ -255,6 +255,19 @@ def multi_claim_sim():
       ## Claim B -> B' from previous epochs
       ## Then use B to claim B -> B' current
       ## The B -> B' can be done later I think
+
+      ## If Claim Epoch > 0 (epoch 1 or more)
+      ## Reward from Epoch 1 -> Emissions from epoch 0
+      ## Reward from Epoch 2 -> Emissions from Epoch 0 and Epoch 1, etc..
+      ## Memoized Reward from Epoch N = Memoized Reward from Epoch N - 1
+      ## If Epoch N - 1 = 0 -> Reward(Emission)
+
+      #### MEMOIZED EMISSIONS FOR REWARD
+      ## TODO
+      if (epoch > 0):
+        for lookback_epoch in range(epoch):
+          ## Given Reward claimed, capture emission
+          ## Given emission, capture emission of received + 1 epoch
       
       ## Add new rewards to user points_a for next epoch
       ## Port over old points_a (cumulative) + add the claimed this epoch
