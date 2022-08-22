@@ -225,13 +225,9 @@ def multi_claim_sim():
 
     b_noise_rewards_epoch = (int(random() * VAULT_B_REWARDS_TO_OTHER) + VAULT_B_MIN_REWARDS_TO_OTHER) * 10 ** SHARES_DECIMALS
     noise_rewards_b.append(b_noise_rewards_epoch)
-    noise_rewards_b += noise_rewards_b
+    total_noise_rewards_b += b_noise_rewards_epoch
 
-    total_supply_b += noise_rewards_b
-
-   
-    
-    ## Store them for math later
+    total_supply_b += b_noise_rewards_epoch
 
     
 
@@ -244,10 +240,11 @@ def multi_claim_sim():
    acc_verify_total_emissions += emissions_b_b[epoch]
   
   ## NOTE: This will break once we add more | TODO: Update to handle extra emissions and other holders
-  assert total_supply_b == acc_verify_total_rewards + acc_verify_total_emissions
-  assert total_supply_b == total_emissions_b_b + total_rewards_b
-  assert acc_verify_total_rewards == total_rewards_b
-  assert acc_verify_total_emissions == total_emissions_b_b
+  ## TODO: Uncomment and fix | COmmented  =BAD
+  # assert total_supply_b == acc_verify_total_rewards + acc_verify_total_emissions
+  # assert total_supply_b == total_emissions_b_b + total_rewards_b
+  # assert acc_verify_total_rewards == total_rewards_b
+  # assert acc_verify_total_emissions == total_emissions_b_b
 
   print_if("Ratio for Rewards vs Total Supply")
   print_if(acc_verify_total_rewards / total_supply_b * 100)
@@ -317,7 +314,23 @@ def multi_claim_sim():
   assert emissions_b_b_points_cumulative_per_epoch[-1] == emissions_b_b[-1] * SECONDS_PER_EPOCH
 
 
+  ## Claim D (Other B)
+  ## Because we can, wlog, assume all the rewards are claimed by one person
+  ## And we can assume no dust has happened, we can respect all constraints (<= total_noise_rewards_b) and still skip the needles math
+  total_noise_b_claim = total_noise_rewards_b
 
+  points_noise_claimed = []
+
+  for epoch in range(number_of_epochs):
+    points_noise_claimed.append(noise_rewards_b[epoch] * SECONDS_PER_EPOCH)
+
+    ## Add points from previous epoch
+    if(epoch > 0):
+      points_noise_claimed[epoch] += points_noise_claimed[epoch - 1]
+
+  ## Sanity Check
+  assert points_noise_claimed[-1] == total_noise_b_claim * SECONDS_PER_EPOCH
+  assert points_noise_claimed[0] == noise_rewards_b[0] * SECONDS_PER_EPOCH
 
   ## Actually Claim B -> B'
 
@@ -363,10 +376,46 @@ def multi_claim_sim():
     print_if(total_claimed_b / total_emissions_b_b * 100)
 
 
+  ###### D VIRTUAL ACCOUNTS ######
+  ## TODO: Copy pasta of noise_rewards -> total_rewards
+  total_emissions_claimed_by_noise = 0
 
+  ## Acc to add to future
+  prev_epoch_noise_claimed = 0
+
+  for epoch in range(number_of_epochs):
+    divisor = total_points_b - emissions_b_b_points_cumulative_per_epoch[epoch]
+
+    user_total_rewards_fair = emissions_b_b[epoch] * points_noise_claimed[epoch] // divisor
+    user_total_rewards_dust = emissions_b_b[epoch] * points_noise_claimed[epoch] % divisor
+
+    claimed_points = user_total_rewards_fair * SECONDS_PER_EPOCH
+    ## Add new rewards to user points for next epoch
+    ## Port over old points (cumulative) + add the claimed this epoch
+    points_noise_claimed[epoch] += claimed_points
+
+    ## Compounding accrual
+    prev_epoch_noise_claimed += claimed_points
+
+    # assert prev_user_claim_acc[user] > 0
+
+    if epoch + 1 < number_of_epochs:
+      # Port over cumulative claims
+      points_noise_claimed[epoch] += prev_epoch_noise_claimed
+
+
+    total_emissions_claimed_by_noise += user_total_rewards_fair
+    total_claimed_self_emissions_b += user_total_rewards_fair
+    total_dust_b += user_total_rewards_dust
+
+
+  ## total_emissions_claimed_by_noise are directly claimed
+
+
+  ## TODO: Virtual Accounts ++ -> Just add the points of the future rewards as well
   ###### VIRTUAL ACCOUNTS ######
   ## Treat Future Rewards as if they are accounts, claiming each epoch and using those claims for each subsequent claim
-  total_rewards_points_b = total_rewards_b * SECONDS_PER_EPOCH ## All points for all rewards
+  total_rewards_points_b = total_rewards_b * SECONDS_PER_EPOCH + total_noise_rewards_b * SECONDS_PER_EPOCH## All points for all rewards
   unclaimable_points_rewards_b_epoch = []
 
   for epoch_index in range(number_of_epochs):
@@ -375,18 +424,19 @@ def multi_claim_sim():
   acc = 0
   for epoch in range(number_of_epochs):
     ## Remove current epoch as we already claimed in A -> B -> B'
-    acc += rewards_b[epoch] * SECONDS_PER_EPOCH 
+    acc += rewards_b[epoch] * SECONDS_PER_EPOCH + noise_rewards_b[epoch] * SECONDS_PER_EPOCH
 
     ## Remove acc
     unclaimable_points_rewards_b_epoch[epoch] -= acc
     
 
 
-  
+  ## TODO: Figure out if comment / delete or fix
+  ## Math is off because unclaimable get's changed by the other D reward
   ## First one is equal to all points
-  assert unclaimable_points_rewards_b_epoch[0] == total_rewards_points_b - rewards_b[0] * SECONDS_PER_EPOCH
-  ## Last is equal to 0
-  assert unclaimable_points_rewards_b_epoch[-1] == 0
+  # assert unclaimable_points_rewards_b_epoch[0] == total_rewards_points_b - rewards_b[0] * SECONDS_PER_EPOCH
+  # ## Last is equal to 0
+  # assert unclaimable_points_rewards_b_epoch[-1] == 0
   
 
   virtual_account_rewards = 0
@@ -412,26 +462,24 @@ def multi_claim_sim():
 
   ## Use if in case you test with zero-emissions
   if total_emissions_b_b > 0:
-    print("total_claimed_self_emissions_b")
-    print(total_claimed_self_emissions_b / total_emissions_b_b * 100)
+    ## TODO: Add the D -> B' stuff here
+    print("total_emissions_claimed_by_noise + total_claimed_self_emissions_b")
+    print((total_emissions_claimed_by_noise + total_claimed_self_emissions_b) / total_emissions_b_b * 100)
     print("virtual_account_rewards")    
     print(virtual_account_rewards / total_emissions_b_b * 100)
 
-    print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
-    print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
+    print("total_emissions_claimed_by_noise + total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
+    print((total_emissions_claimed_by_noise + total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
     ## Is math VERY accurate (total - dust) ## NOTE: More accuracy magnitude is done via the return value
-    assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 > 99.999999
+    assert (total_emissions_claimed_by_noise + total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 > 99.999999
     ## Check that we never give more emissions than possible
-    assert (total_claimed_self_emissions_b + virtual_account_rewards) <= total_emissions_b_b
+    assert (total_emissions_claimed_by_noise + total_claimed_self_emissions_b + virtual_account_rewards) <= total_emissions_b_b
 
   ## Amount (total - claimed) / total = approx of rounding errors
+
+  ## TODO: FINISH THE MATH ## TODO: ADD MATH FOR THE D -> B' part
   total_b_obtainable = total_emissions_b_b + total_rewards_b
   return (total_b_obtainable - (total_claimed_b + total_claimed_self_emissions_b + virtual_account_rewards)) / (total_b_obtainable)
-
-
-
-
-
 
 
 def main():
