@@ -65,11 +65,6 @@ RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
 SECONDS_PER_EPOCH = 604800
 
-## Amount of extra B that doesn't belong to the emissions from Vault A ()
-## TODO: Think about this.
-## Basically other deposits
-NOISE_B_PER_EPOCH = 123123 
-
 
 ### B VARS ###
 MIN_VAULT_B_REWARDS_TO_A = 400 ## The "true" "base" yield from B -> A (without adding self-emissions)
@@ -368,7 +363,6 @@ def multi_claim_sim():
 
 
   ###### D VIRTUAL ACCOUNTS ######
-  ## TODO: Copy pasta of noise_rewards -> total_rewards
   total_emissions_claimed_by_noise = 0
 
   ## Acc to add to future
@@ -403,7 +397,6 @@ def multi_claim_sim():
   ## total_emissions_claimed_by_noise are directly claimed
 
 
-  ## TODO: Virtual Accounts ++ -> Just add the points of the future rewards as well
   ###### VIRTUAL ACCOUNTS ######
   ## Treat Future Rewards as if they are accounts, claiming each epoch and using those claims for each subsequent claim
   total_rewards_points_b = total_rewards_b * SECONDS_PER_EPOCH + total_noise_rewards_b * SECONDS_PER_EPOCH## All points for all rewards
@@ -453,7 +446,6 @@ def multi_claim_sim():
 
   ## Use if in case you test with zero-emissions
   if total_emissions_b_b > 0:
-    ## TODO: Add the D -> B' stuff here
     print("total_claimed_self_emissions_b")
     print((total_claimed_self_emissions_b) / total_emissions_b_b * 100)
     print("virtual_account_rewards")    
@@ -482,11 +474,6 @@ def main():
     else:
       print("Unfair")
       print(res)
-
-      ## NOTE: During dev I've had instances of tests that were unfair
-      ## TODO: Investigate the why
-      ## 1.250985445001193e-16
-      ## 1.2728526341344986e-16
     
   print("Overall number of passing tests")
   print(fair_count)
