@@ -396,8 +396,10 @@ def multi_claim_sim():
 
     print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")    
     print((total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100)
+    ## Is math VERY accurate (total - dust) ## NOTE: More accuracy magnitude is done via the return value
     assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 > 99.999999
-    assert (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100 <= 100
+    ## Check that we never give more emissions than possible
+    assert (total_claimed_self_emissions_b + virtual_account_rewards) <= total_emissions_b_b
 
   ## Amount (total - claimed) / total = approx of rounding errors
   total_b_obtainable = total_emissions_b_b + total_rewards_b
