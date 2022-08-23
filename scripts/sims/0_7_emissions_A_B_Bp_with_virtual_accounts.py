@@ -256,6 +256,11 @@ def multi_claim_sim():
       ## Then use B to claim B -> B' current
       ## The B -> B' can be done later I think
 
+      ## NOTE:
+      ## user_total_rewards_fair becomes the virtual account
+      ## We simulate recursively the emission claim it performed
+      ## We claim it
+
       ## If Claim Epoch > 0 (epoch 1 or more)
       ## Reward from Epoch 1 -> Emissions from epoch 0
       ## Reward from Epoch 2 -> Emissions from Epoch 0 and Epoch 1, etc..
@@ -265,10 +270,17 @@ def multi_claim_sim():
       #### MEMOIZED EMISSIONS FOR REWARD
       ## TODO
       if (epoch > 0):
+        ## TODO: Create as function for better re-usability
+        process_virtual_account_emissions(user_total_rewards_fair, emissions_b_b, epoch)
+
         for lookback_epoch in range(epoch):
           ## Given Reward claimed, capture emission
           ## Given emission, capture emission of received + 1 epoch
+          
+
+      ## TODO: Process Emissions Here for total Account
       
+
       ## Add new rewards to user points_a for next epoch
       ## Port over old points_a (cumulative) + add the claimed this epoch
       old_points = points_b[user][epoch - 1] if epoch > 0 else 0
