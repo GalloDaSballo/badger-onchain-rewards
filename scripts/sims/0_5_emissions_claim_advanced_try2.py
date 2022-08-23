@@ -50,12 +50,12 @@ from random import random
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
 EPOCHS_RANGE = 0 ## Set to 0 to test specific epoch amounts
-EPOCHS_MIN = 3
+EPOCHS_MIN = 10
 
 SHARES_DECIMALS = 18
 RANGE = 10_000 ## Shares can be from 1 to 10k with SHARES_DECIMALS
 MIN_SHARES = 1_000 ## Min shares per user
-SECONDS_PER_EPOCH = 1 ##604800
+SECONDS_PER_EPOCH = 604800
 
 ## Amount of extra B that doesn't belong to the emissions from Vault A ()
 ## TODO: Think about this.
@@ -68,7 +68,7 @@ MIN_VAULT_B_REWARDS_TO_A = 1_000 ## The "true" "base" yield from B -> A (without
 VAULT_B_REWARDS_TO_A = 100_000 ## 100 k ETH example
 
 VAULT_B_MIN_SELF_EMISSION = 0
-VAULT_B_SELF_EMISSIONS = 10000 ##100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
+VAULT_B_SELF_EMISSIONS = 100_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
 VAULT_B_EMISSIONS_TO_OTHER = 1_000_000 ## TODO Inflates total supply but is not added to rewards
 VAULT_B_HODLERS = 1_000_000 ## TODO Inflates total supply and dilutes all emissions (even from C)
 
@@ -89,11 +89,11 @@ VAULT_C_HODLERS = 1_000_000 ## Inflates total supply and dilutes all emissions f
 
 
 USERS_RANGE = 0
-USERS_MIN = 1
+USERS_MIN = 2000
 
 
 ## How many simulations to run?
-ROUNDS = 1
+ROUNDS = 1000
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -185,14 +185,14 @@ def multi_claim_sim():
   total_supply_b = 0 ## Actual total amount of b
 
   for epoch in range(number_of_epochs):
-    reward_b = (int(0.5 * VAULT_B_REWARDS_TO_A) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
+    reward_b = (int(random() * VAULT_B_REWARDS_TO_A) + MIN_VAULT_B_REWARDS_TO_A) * 10 ** SHARES_DECIMALS
     rewards_b.append(reward_b)
 
     total_rewards_b += reward_b
     total_supply_b += reward_b
 
     ## Self-Emission B -> B - Only A% of these are claimable as reward, rest belongs to other depositors
-    b_self_emissions_epoch = (int((0.5 + epoch / 10) * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
+    b_self_emissions_epoch = (int(random() * VAULT_B_SELF_EMISSIONS) + VAULT_B_MIN_SELF_EMISSION) * 10 ** SHARES_DECIMALS
     print_if('Epoch' + str(epoch) + ':b_emit_b=' + str(b_self_emissions_epoch // 10 ** SHARES_DECIMALS) + ',reward_b=' + str(reward_b // 10 ** SHARES_DECIMALS))
 
     emissions_b_b.append(b_self_emissions_epoch)
@@ -337,7 +337,7 @@ def multi_claim_sim():
 
       if epoch + 1 < number_of_epochs:
         # Port over cumulative claims
-        points_b[user][epoch + 1] += prev_user_claim_acc[user] + claimed_points * (rewards_b[epoch + 1] / rewards_b[epoch])
+        points_b[user][epoch + 1] += prev_user_claim_acc[user]## + claimed_points * (rewards_b[epoch + 1] / rewards_b[epoch])
         print_if('Epoch' + str(epoch) + ':p_b=' + str(points_b[user][epoch] // 10 ** SHARES_DECIMALS) + ',p_b_next=' + str(points_b[user][epoch + 1] // 10 ** SHARES_DECIMALS) + ',prev_user_claim_acc=' +str(prev_user_claim_acc[user] // 10 ** SHARES_DECIMALS))
 
 
@@ -429,8 +429,8 @@ def multi_claim_sim():
 
     print("total_claimed_self_emissions_b + virtual_account_rewards / total_emissions_b_b * 100")   
     emission_b_ratio = (total_claimed_self_emissions_b + virtual_account_rewards) / total_emissions_b_b * 100
-    print_if('total_claimed_self_emissions_b=' + str(total_claimed_self_emissions_b // 10 ** SHARES_DECIMALS) + ',virtual_account_rewards=' + str(virtual_account_rewards // 10 ** SHARES_DECIMALS) + ',total_emissions_b_b=' + str(total_emissions_b_b // 10 ** SHARES_DECIMALS))
-    assert emission_b_ratio == 100
+    print_if('total_claimed_self_emissions_b=' + str(total_claimed_self_emissions_b // 10 ** SHARES_DECIMALS) + ',virtual_account_rewards=' + str(virtual_account_rewards // 10 ** SHARES_DECIMALS) + ',total_emissions_b_b=' + str(total_emissions_b_b // 10 ** SHARES_DECIMALS) + ',emission_b_ratio=' + str(emission_b_ratio))
+    assert abs(emission_b_ratio - 100) <= 0.000000001
 
   ## Amount (total - claimed) / total = approx of rounding errors
   total_b_obtainable = total_emissions_b_b + total_rewards_b
