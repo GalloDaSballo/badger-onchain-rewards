@@ -55,7 +55,7 @@ Where B and B' are not all for the depositors of A
 """
 
 ## Should we use randomness or use just the values provided?
-DETERMINISTIC = True
+DETERMINISTIC = False
 
 ## NOTE: a 1 epoch test MUST always pass 
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
@@ -77,8 +77,8 @@ VAULT_B_MIN_SELF_EMISSION = 500
 VAULT_B_SELF_EMISSIONS = 1_000_000 ## 100M ETH example - Exacerbates issue with B -> B Claim
 
 ## Additional B Rewards (We call them D to separate)
-VAULT_B_MIN_REWARDS_TO_OTHER = 0
-VAULT_B_REWARDS_TO_OTHER = 0 ## Inflates total supply but is not added to rewards
+VAULT_B_MIN_REWARDS_TO_OTHER = 100_000
+VAULT_B_REWARDS_TO_OTHER = 100_000 ## Inflates total supply but is not added to rewards
 
 ## NOTE: Unused
 ## NOTE: See Math to prove we don't need as long as we have `VAULT_B_REWARDS_TO_OTHER`
@@ -135,6 +135,7 @@ def multi_claim_sim():
   total_supply_a = 0
   total_points_a = 0
 
+  balances_b = []
   claimed_b = [] ## How much did each user get
   points_b = [] ## points_a[user][epoch]
 
@@ -150,6 +151,8 @@ def multi_claim_sim():
     ## User Balance
     balance = (int(random() * RANGE) + MIN_SHARES) * 10 ** SHARES_DECIMALS if not DETERMINISTIC else MIN_SHARES * 10 ** SHARES_DECIMALS
     balances.append(balance)
+    balances_b.append(0)
+
 
     ## NOTE: Balance is token A so no increase
 
@@ -362,6 +365,8 @@ def multi_claim_sim():
       user_total_rewards_fair = points_a[user] * rewards_b[epoch] // divisor
       user_total_rewards_dust = points_a[user] * rewards_b[epoch] % divisor
 
+      balances_b[user] += user_total_rewards_fair
+
       ## TODO: When claiming A -> B
       ## Claim B -> B' from previous epochs
       ## Then use B to claim B -> B' current
@@ -389,10 +394,12 @@ def multi_claim_sim():
 
       virtual_account_rewards += current_virtual_reward_earned
 
+      balances_b[user] += current_virtual_reward_earned
+
 
       ## TODO: Process Emissions Here for total Account
       #### PROCESS EMISSIONS FROM TOTAL BALANCE
-      b_rewards_eligible_for_emissions = user_total_rewards_fair + current_virtual_reward_earned
+      b_rewards_eligible_for_emissions = balances_b[user] ## old_epoch_bal + user_total_rewards_fair + current_virtual_reward_earned
 
       current_epoch_emissions_earned, current_epoch_emissions_dust = process_emissions_for_epoch(
         b_rewards_eligible_for_emissions,
@@ -404,6 +411,8 @@ def multi_claim_sim():
 
       total_claimed_self_emissions_b += current_epoch_emissions_earned
 
+      ## Increase by received so it's used for next epoch
+      balances_b[user] += current_epoch_emissions_earned
 
 
       ## TODO: CHECK
@@ -451,7 +460,7 @@ def main():
   fair_count = 0
   for x in range(ROUNDS):
     res = multi_claim_sim()
-    if res < 1e-18:
+    if res < 1e-17: ## TODO: This is 1e17, used to be 1e-18
       fair_count += 1
     else:
       print("Unfair")
