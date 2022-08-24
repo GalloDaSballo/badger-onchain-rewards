@@ -505,7 +505,7 @@ def multi_claim_sim():
     assert total_claimed_b / total_rewards_b * 100 == 100
     assert total_rewards_b >= total_claimed_direct  ## Check of fairness
 
-    ## TODO Run a check to verify that all claimable tokens for users are properly claimed as expected
+    ## Run a check to verify that all claimable tokens for users are properly claimed as expected
     ## e.g. total_claimed_from_above approx total_claimable_by_A_holders
     expected_total_emissions_claimed = (total_emissions_b_b * total_rewards_b) // (total_rewards_b + total_noise_rewards_b)
 
