@@ -43,7 +43,7 @@ Where B and B' are not all for the depositors of A
   - Add non-random version which will help with debugging
 
 
-  TODO: Handle Virtual Accounts along with B -> B' to simulate the "smart contract" claims
+  Handle Virtual Accounts along with B -> B' to simulate the "smart contract" claims
 
   TODO: ADD C
 
@@ -140,7 +140,7 @@ def multi_claim_sim():
     ## Stats / Temp Vars for simulation
     claiming = (
         []
-    )  ## Is the user going to claim each week ## TODO: Use or prove not necessary
+    )  ## Is the user going to claim each week
     ##    HUNCH -> Not necessary as math is not interested in your balance but the virtual balance at that time
 
     claimers = 0
@@ -388,13 +388,6 @@ def multi_claim_sim():
         ## Remove acc
         unclaimable_points_rewards_b_epoch[epoch] -= acc
 
-    ## TODO: Figure out if comment / delete or fix
-    ## Math is off because unclaimable get's changed by the other D reward
-    ## First one is equal to all points
-    # assert unclaimable_points_rewards_b_epoch[0] == total_rewards_points_b - rewards_b[0] * SECONDS_PER_EPOCH
-    # ## Last is equal to 0
-    # assert unclaimable_points_rewards_b_epoch[-1] == 0
-
     virtual_account_d = 0
     for epoch_index in range(number_of_epochs):
         total_unclaimed_points = unclaimable_points_rewards_b_epoch[
@@ -436,7 +429,7 @@ def multi_claim_sim():
 
             balances_b[user] += user_total_rewards_fair
 
-            ## TODO: When claiming A -> B
+            ## When claiming A -> B
             ## Claim B -> B' from previous epochs
             ## Then use B to claim B -> B' current
             ## The B -> B' can be done later I think
@@ -453,6 +446,7 @@ def multi_claim_sim():
             ## If Epoch N - 1 = 0 -> Reward(Emission)
 
             #### MEMOIZED EMISSIONS FOR REWARD
+            ## Claim VirtualAccount(Bi -> B')
             (
                 current_virtual_reward_earned,
                 current_virtual_reward_dust,
@@ -468,8 +462,8 @@ def multi_claim_sim():
 
             balances_b[user] += current_virtual_reward_earned
 
-            ## TODO: Process Emissions Here for total Account
             #### PROCESS EMISSIONS FROM TOTAL BALANCE
+            ## Claim B -> B'
             b_rewards_eligible_for_emissions = balances_b[
                 user
             ]  ## old_epoch_bal + user_total_rewards_fair + current_virtual_reward_earned
@@ -513,6 +507,13 @@ def multi_claim_sim():
 
     ## TODO Run a check to verify that all claimable tokens for users are properly claimed as expected
     ## e.g. total_claimed_from_above approx total_claimable_by_A_holders
+    expected_total_emissions_claimed = (total_emissions_b_b * total_rewards_b) // (total_rewards_b + total_noise_rewards_b)
+
+    ## NOTE: We add emission + virtual account as virtual account are only emissions, but accounted separately    
+    ## Test: We didn't give more than expected = We do not leak value
+    assert (total_claimed_self_emissions_b + virtual_account_rewards) <= expected_total_emissions_claimed
+    ## Test: We gave as close to theoretical as allowed by rounding
+    assert (total_claimed_self_emissions_b + virtual_account_rewards) / expected_total_emissions_claimed * 100 == 100
 
     ## Use if in case you test with zero-emissions
     total_emissions_claimed = total_claimed_self_emissions_b + total_emissions_claimed_by_noise + virtual_account_d
@@ -559,7 +560,7 @@ def main():
     fair_count = 0
     for x in range(ROUNDS):
         res = multi_claim_sim()
-        if res < 1e-17:  ## TODO: This is 1e17, used to be 1e-18
+        if res < 1e-18:
             fair_count += 1
         else:
             print("Unfair")
