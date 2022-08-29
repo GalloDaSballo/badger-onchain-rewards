@@ -66,7 +66,7 @@ Where B and B' are not all for the depositors of A
 """
 
 ## Should we use randomness or use just the values provided?
-DETERMINISTIC = False
+DETERMINISTIC = True
 
 ## NOTE: a 1 epoch test MUST always pass
 ## because the issue of Future Rewards Backwards Claims is not relevant (there is no epoch of unclaimable rewards)
@@ -101,11 +101,11 @@ VAULT_B_REWARDS_TO_OTHER = 100_000  ## Inflates total supply but is not added to
 
 
 ### C VARS ###
-VAULT_C_MIN_REWARDS_TO_B = 1_000  ## 10 k ETH example
-VAULT_C_REWARDS_TO_B = 100_000  ## 100 k ETH example
+VAULT_C_MIN_REWARDS_TO_B = 10_000  ## 10 k ETH example
+VAULT_C_REWARDS_TO_B = 0  ## 100 k ETH example
 
-VAULT_C_MIN_SELF_EMISSIONS = 1_000  ## 100k ETH example
-VAULT_C_SELF_EMISSIONS = 100_000  ## 100k ETH example
+VAULT_C_MIN_SELF_EMISSIONS = 10_000  ## 100k ETH example
+VAULT_C_SELF_EMISSIONS = 0  ## 100k ETH example
 
 ## NOTE: TODO - Zero to make initial sim simpler
 VAULT_C_MIN_REWARDS_TO_OTHER = 0
