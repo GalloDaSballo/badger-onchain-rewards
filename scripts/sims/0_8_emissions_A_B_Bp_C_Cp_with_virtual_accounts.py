@@ -1078,6 +1078,7 @@ def get_reward(balance, total_supply, rewards, epoch):
 
 def get_emission(balance, total_supply, rewards, emissions, epoch):
     """
+        Given an (updated e.g already claimed reward) balance, claim the emissions for this epoch
         Returns (claimed, dust)
     """
     ## Any older emission is assumed to be claimed
