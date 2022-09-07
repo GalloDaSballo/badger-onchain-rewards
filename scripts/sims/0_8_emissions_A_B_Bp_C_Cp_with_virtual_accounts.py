@@ -951,8 +951,7 @@ def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, cla
         `claim_depth`: {enum} - Used to retrieve the divisor that is appropriate to the math
         0 -> Rewards -> Math V1 - total_supply
         1 -> Only Emissions -> Multiple emissions means we need to remove them from the circulating supply
-        2 -> Rewards and Emissions -> Rewards and Emissions both need to be removed to get the circulating supply
-        3 -> Rewards and Emissions for Other Claim -> Rewards and Emissions both need to be removed to get the circulating supply
+        2 -> Rewards and Emissions -> Just use total_supply brav
 
         Ultimately the problem is to figure out circulating_supply, which does change after time
     """
@@ -964,11 +963,10 @@ def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, cla
     if claim_depth == 1:
         ## Remove the rewards until this epoch
         ## Remove the emissions until this epoch
-        total_rewards_future = 
-        total_emissions_future =
-        for x in range(epoch):
+        total_rewards_future = rewards[epoch]
+        total_emissions_future = emissions[epoch]
 
-        total_supply
+        return total_supply - total_rewards_future - total_emissions_future
 
     
 
