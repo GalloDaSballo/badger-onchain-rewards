@@ -1063,3 +1063,28 @@ C(1 + 2+ 3) -> C'
 
 However it may be impossible to make this replicable for all cases
 """
+
+def get_reward(balance, total_supply, rewards, epoch):
+    """
+        Returns (claimed, dust)
+    """
+
+    divisor = total_supply ## TODO: Decide if using a secondary function
+
+    claimed = balance * rewards[epoch] // divisor
+    dust = balance * rewards[epoch] % divisor
+
+    return (claimed, dust)
+
+def get_emission(balance, total_supply, rewards, emissions, epoch):
+    """
+        Returns (claimed, dust)
+    """
+    ## Any older emission is assumed to be claimed
+    ## Because we assume nothing from the future is in, we can just subtract the one from the current claim
+    divisor = total_supply - emissions[epoch]
+
+    claimed = balance * emissions[epoch] // divisor
+    dust = balance * emissions[epoch] % divisor
+
+    return (claimed, dust)
