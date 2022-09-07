@@ -923,24 +923,6 @@ def process_emissions_for_epoch(
 
 
 
-def process_rewards_for_epoch():
-    """
-        V1 Math for Rewards
-        TODO: Is this V1 or V2?
-        TODO: Write
-    """
-
-    ## Get Points
-
-    ## get_circulating_supply_at_epoch
-
-    ## Multiply by rewards / get_circulating_supply_at_epoch_points
-
-    ## DONE bruh
-
-    return 0
-
-
 
 
 def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, claim_depth):
@@ -949,11 +931,11 @@ def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, cla
         Figure out the circulating supply at that epoch
 
         `claim_depth`: {enum} - Used to retrieve the divisor that is appropriate to the math
-        0 -> Rewards -> Math V1 - total_supply
+        0 -> Rewards -> Math V1 - total_supply -> Used for All non-emission claims
         1 -> Only Emissions -> Multiple emissions means we need to remove them from the circulating supply
-        2 -> Rewards and Emissions -> Just use total_supply brav
 
         Ultimately the problem is to figure out circulating_supply, which does change after time
+
     """
 
     ## Given depth we'll need to go deeper / less deep
@@ -963,14 +945,9 @@ def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, cla
     if claim_depth == 1:
         ## Remove the rewards until this epoch
         ## Remove the emissions until this epoch
-        total_rewards_future = rewards[epoch]
         total_emissions_future = emissions[epoch]
 
-        return total_supply - total_rewards_future - total_emissions_future
-
-    
-
-    ## Once we have that, just crunch the values
+        return total_supply - total_emissions_future
 
 
 
@@ -1060,6 +1037,22 @@ A -> D -> D' -> C
 C(1 + 2+ 3) -> C'
 
 However it may be impossible to make this replicable for all cases
+
+
+## NOTE: On Subsegments
+
+X -> A -> *
+Z -> A -> *
+
+While this would be mathematically equivalent to
+X -> A
+Z -> A
+A -> *
+
+Because of the function interface starting with one vault, I'll be ignoring that.
+If the starting vault is different, just do n claims for each starting node
+
+The sum of all partial claims will be equal to the total claim (minus rounding due to integer division)
 """
 
 def get_reward(balance, total_supply, rewards, epoch):
@@ -1067,23 +1060,140 @@ def get_reward(balance, total_supply, rewards, epoch):
         Returns (claimed, dust)
     """
 
-    divisor = total_supply ## TODO: Decide if using a secondary function
+    divisor = total_supply[epoch] ## TODO: Decide if using a secondary function
 
     claimed = balance * rewards[epoch] // divisor
     dust = balance * rewards[epoch] % divisor
 
     return (claimed, dust)
 
-def get_emission(balance, total_supply, rewards, emissions, epoch):
+def get_emission(balance, total_supply, emissions, epoch):
     """
         Given an (updated e.g already claimed reward) balance, claim the emissions for this epoch
         Returns (claimed, dust)
     """
     ## Any older emission is assumed to be claimed
     ## Because we assume nothing from the future is in, we can just subtract the one from the current claim
-    divisor = total_supply - emissions[epoch]
+    divisor = total_supply[epoch] - emissions[epoch]
 
     claimed = balance * emissions[epoch] // divisor
     dust = balance * emissions[epoch] % divisor
 
     return (claimed, dust)
+
+
+
+"""
+    Let Vs = {A, B, ...Z} be the vector of balances
+
+    TVi being Total Supply for Vault V at epoch i === Sum(A)
+    vni being balance of user n at epoch i; with vni <= Sum(A)
+
+    R being a generic reward
+
+    Given that all Ri is claimable on each epoch
+
+    Compound Claims Theorem
+
+    For Each V ∈ Vs:
+        Claim(V, n, i) ===
+        {
+            vi / Tvi * Ri; if V != R; Rewards Case
+            vi / (Tvi - Ri); if V == R; Emissions Case
+        }
+
+    
+    Corollary 1 - Definition of Circulating Supply
+
+    Let Tvi being the total Supply for V ∈ Vs at epoch i;
+
+    We define circulating supply (from the Contract POV) as 
+    the sum of all Vault shares owned by users, 
+    or that are rewards that can be claimed through ownership of a different Vault D ∈ Vs; D != V
+
+    Given V ∈ Vs and TRi as the Sum(Ri) for given epoch i;
+    With R == V;
+
+    We separate TRV = TR + TV
+    Where TV is circulating and TR are emissions for it
+
+    Because TRV = TR + TV
+
+    We define Circulating supply as TV, the amount of Rewards that are not emissions for the given Vault
+
+
+
+    Corollary 2 - Linear Extension
+
+    For Each V ∈ VS; 
+    There is no difference if we prove theorems with a vector of one or a vector of n ∈ N
+
+    Proof by absurd:
+
+    Imagine a R as value of rewards and Ri ∈ N; as the specific reward claimable for epoch i
+
+    If Ri is claimable by a single vector N ∈ Vs, then TNi the total supply of N at epoch i maps out to Ri
+
+    If we were to introduce an additional vector M ∈ Vs with 50% of the rewards being equally split between N and M
+    Then we would assert that:
+
+    TNi maps out to 50% Ri
+    and
+    TMi maps out to 50% Ri
+
+    Meaning that for any ni <= TNi; with TNi == SUM(ni); There exist a value r ∈ N; That each share amount can claim
+
+    We can extend this idea to any number of Vaults for any ratio of Rewards.
+
+    Given Vsi and it's subsets and Ri being respectively:
+    The permutations of all possible vaults at epoch i and
+    The permutation of all possible rewards for each epoch i
+    
+    With TRi == SUM(Ri) == C * Ri
+
+    Meaning there must be a C ∈ <Q> (Vector of Rational Numbers) that maps out a ratio between TRi and Ri
+
+    If there was no vector, then by absurd, in the case of a single vault 
+    The following must be true:
+    There is no c ∈ N such that
+    TNi == SUM(ni) can claim c * Ri
+
+    This is absurd per the example above
+"""
+
+
+## How do we codify Segments???
+
+"""
+    Start
+    ClaimDepth
+    ClaimTokens1
+    ClaimEmissionTokens1
+    ...
+    ...
+    ClaimTokens_ClaimDepth-1
+    ClaimEmissionTokens_ClaimDepth-1
+
+
+    ## What happens if in the middle we have start again?
+    ## What happens if we have the same subpath X times?
+
+
+
+    RANDOM_CLAIM_DEPTH
+
+    RANDOM_CLAIM_TOKEN_LAYER_1...RANDOM_CLAIM_TOKEN_LAYER_N
+    RANDOM_CLAIM_EMISSION_LAYER_1...RANDOM_CLAIM_EMISSION_LAYER_N
+
+
+    ## What happens if we have the same subpath X times?
+    We just recompute it and pay the extra gas, per the logic above it's still the correct math in spite of it wasting gas
+
+
+    ## What happens if in the middle we have start again?
+    Then the entire path is a uber path to start
+
+    N -> A -> M
+
+    Meaning that Start should have been N and not A
+"""
