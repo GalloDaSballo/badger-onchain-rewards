@@ -92,7 +92,7 @@ VAULT_B_SELF_EMISSIONS = (
 )
 
 ## Additional B Rewards (We call them β to separate) <- NOTE: May wanna remove noise for a time
-VAULT_B_MIN_REWARDS_TO_OTHER = 500
+VAULT_B_MIN_REWARDS_TO_OTHER = 0 ## TODO: Add back - Removed to nail down the math of claiming B -> C and C -> C'
 VAULT_B_REWARDS_TO_OTHER = 100_000  ## Inflates total supply but is not added to rewards
 
 ## NOTE: Unused
@@ -101,13 +101,14 @@ VAULT_B_REWARDS_TO_OTHER = 100_000  ## Inflates total supply but is not added to
 
 
 ### C VARS ###
-VAULT_C_MIN_REWARDS_TO_B = 10_000  ## 10 k ETH example
+VAULT_C_MIN_REWARDS_TO_B = 0  ## 10 k ETH example
 VAULT_C_REWARDS_TO_B = 0  ## 100 k ETH example
 
-VAULT_C_MIN_SELF_EMISSIONS = 10_000  ## 100k ETH example
-VAULT_C_SELF_EMISSIONS = 0  ## 100k ETH example
+VAULT_C_MIN_SELF_EMISSIONS = 0  ## TODO: This must be 100% or I made a mistake
+VAULT_C_SELF_EMISSIONS = 1_000  ## 1k ETH example
 
 ## NOTE: TODO - Zero to make initial sim simpler
+## TODO: Add the math as it's not there yet
 VAULT_C_MIN_REWARDS_TO_OTHER = 0
 VAULT_C_REWARDS_TO_OTHER = (
     0  ## Inflates total supply but is not added to rewards
@@ -311,6 +312,7 @@ def multi_claim_sim():
         total_supply_c += reward_c
 
         ## Self-Emission C -> C' - Only (B + B')% of these are claimable as reward, rest belongs to other depositors
+        ## TODO: Add claim / math for this
         c_self_emissions_epoch = (
             ## TODO: VARS
             (int(random() * VAULT_C_SELF_EMISSIONS) + VAULT_C_MIN_SELF_EMISSIONS)
@@ -677,7 +679,8 @@ def multi_claim_sim():
 
     for epoch in range(number_of_epochs):
         ## TODO: B is self emitting so divisor is prob wrong
-        divisor = total_points_b  ## No subtraction as rewards are from B which is not self-emitting
+        ## TODO: Maybe instead of divisor being wrong (See Math-2A), we need virtual accounts for both B and B'
+        divisor = total_points_b
 
         for user in range(number_of_users):
             user_total_rewards_fair = points_b[user][epoch] * rewards_c[epoch] // divisor
@@ -702,8 +705,39 @@ def multi_claim_sim():
             ## Memoized Reward from Epoch N = Memoized Reward from Epoch N - 1
             ## If Epoch N - 1 = 0 -> Reward(Emission)
 
+            ## TODO: Virtual Account of B -> B' -> C
+            ## Take B + B' claimed
+            ## They have been there since time X
+            ## First epoch they were added is not necessarily complete time
+            ## Any epoch after that will always be full time
+            ## We will claim the rewards for them <- TODO
+            ##  For each B and B' from Epoch n-1 calculate the amount of c that they can claim
+            ##  Add that up so we can do virtual accounts below
+
+            ### TODO: WRONG FIGURE OUT
+            ## B to C version
+            ## TODO: Write sim on paper
+            (
+                TEMP_virtual_account_b_c,
+                current_virtual_reward_dust,
+            ) = process_virtual_account_emissions(
+                points_b[user][epoch],
+                total_points_b,
+                rewards_c,
+                emissions_b_b_points_cumulative_per_epoch,
+                epoch,
+            )
+
+            print("TEMP_virtual_account_b_c")
+            print(TEMP_virtual_account_b_c)
+
+            virtual_account_rewards_c += TEMP_virtual_account_b_c
+
+            ## And we will claim the emissions that those rewards earned <- Already done, just update virtual account below
+
+
             #### MEMOIZED EMISSIONS FOR REWARD
-            ## Claim VirtualAccount(Bi -> B')
+            ## Claim VirtualAccount(Ci -> C')
             (
                 current_virtual_reward_earned,
                 current_virtual_reward_dust,
@@ -717,10 +751,10 @@ def multi_claim_sim():
 
             virtual_account_rewards_c += current_virtual_reward_earned
 
-            balances_c[user] += current_virtual_reward_earned
+            balances_c[user] += virtual_account_rewards_c
 
             #### PROCESS EMISSIONS FROM TOTAL BALANCE
-            ## Claim B -> B'
+            ## Claim C -> C'
             c_rewards_eligible_for_emissions = balances_c[
                 user
             ]  ## old_epoch_bal + user_total_rewards_fair + current_virtual_reward_earned
@@ -753,12 +787,13 @@ def multi_claim_sim():
             old_points = points_c[user][epoch - 1] if epoch > 0 else 0
             points_c[user][epoch] = old_points + claimed_points
 
-            total_claimed_c += user_total_rewards_fair
+            total_claimed_c += user_total_rewards_fair + current_virtual_reward_earned + current_epoch_emissions_earned
             total_dust_c += user_total_rewards_dust
 
             total_claimed_direct_c += user_total_rewards_fair
 
         ## Ensure basic math is correct, all rewards are claimed
+    
     print("total_claimed_c / total_rewards_c * 100")
     print(total_claimed_c / total_rewards_c * 100)
     assert total_claimed_c / total_rewards_c * 100 == 100
@@ -895,6 +930,136 @@ def process_rewards_for_epoch():
         TODO: Write
     """
 
+    ## Get Points
+
+    ## get_circulating_supply_at_epoch
+
+    ## Multiply by rewards / get_circulating_supply_at_epoch_points
+
+    ## DONE bruh
+
     return 0
 
 
+
+
+def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, claim_depth):
+    """
+        Given the rewards and emissions
+        Figure out the circulating supply at that epoch
+
+        `claim_depth`: {enum} - Used to retrieve the divisor that is appropriate to the math
+        0 -> Rewards -> Math V1 - total_supply
+        1 -> Only Emissions -> Multiple emissions means we need to remove them from the circulating supply
+        2 -> Rewards and Emissions -> Rewards and Emissions both need to be removed to get the circulating supply
+        3 -> Rewards and Emissions for Other Claim -> Rewards and Emissions both need to be removed to get the circulating supply
+
+        Ultimately the problem is to figure out circulating_supply, which does change after time
+    """
+
+    ## Given depth we'll need to go deeper / less deep
+    if claim_depth == 0:
+        return total_supply
+    
+    if claim_depth == 1:
+        ## Remove the rewards until this epoch
+        ## Remove the emissions until this epoch
+        total_rewards_future = 
+        total_emissions_future =
+        for x in range(epoch):
+
+        total_supply
+
+    
+
+    ## Once we have that, just crunch the values
+
+
+
+
+## Get total Claimed
+
+## Get Virtual Accounts total Claimed
+
+## Claim from Virtual Accounts as % of total Claimed vs claimable
+
+## If I know how many rewards are locked in contract, and will only be available in the future
+## I can claim the emissions from those rewards and use the Ratio to distribute them
+# 
+# 
+# 
+#  Reward if A != B
+#  Emission if A == B
+#  I can always tell if it's an emission or a reward
+#  Question is what happens if I can claim from Reward and Emission to new Rewards?
+
+
+## How do we get Emissions?
+## Circulating Supply (- reward_i - emission_i-1) -> And ratio
+
+
+## How do we get Reward from Reward + Emission?
+## Circulating Supply (- reward_i - emission_i) -> And ratio
+## Both are i as after the claim they are both circulating
+
+
+## If No Reward nor emission can be added to future epochs
+## Then we have a guarantee that divisor = total_supply for all Rewards
+## And divisor = total_supply - points_from_current_emissions for all Emissions
+
+## It follows that for a given Reward of Reward C
+## For which B -> B' -> C
+## Then receivedC = receivedB + receivedB' / total_supply
+## Because a rational actor will claim B -> B' -> C
+## Even if they could claim B -> C and loose on some emissions
+## Meaning that if an emission is available it must always be claimed first
+
+## Corollary being:
+## C1 - A -> B type deal
+## If no future tokens (rewards or emissions for future epochs) are present in the contract
+## Meaning no extra points are being accrued to the contract but are not claimable then
+## Any A -> B type claim will always be divided by B / totalSupply
+
+
+
+## Vault -> Reward -> Emission -> Reward -> Emission -> Reward -> Emission -> Reward -> Emission -> Reward -> Emission
+"""
+A set of claims is basically a path to claims, where the starting point is always Vault
+The intermediary steps are the token (and it's emission if available, perhaps packable via `bool`)
+
+
+    1) A -> B -> B' -> C -> C'
+    2) A -> C -> C'
+    3) A -> D -> D' -> C -> C'
+
+    Can be resolved as:
+
+    1)
+    A -> B
+    B -> B'
+    B -> C
+    C -> C'
+
+    2) 
+    A -> C
+    C -> C'
+
+    3)
+    A -> D
+    D -> D'
+    D -> C
+    C -> C'
+
+A cache of token ratios may help save gas, however ultimately
+A "compound claim" is the ordered claim of pair of tokens, accrued to the current epoch
+
+
+Given Paths 1, 2 and 3
+A gas optimized claim would do:
+A -> B -> B' -> C
+A -> C
+A -> D -> D' -> C
+C(1 + 2+ 3) -> C'
+
+However it may be impossible to make this replicable for all cases
+"""
