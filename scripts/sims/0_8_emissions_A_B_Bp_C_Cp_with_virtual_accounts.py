@@ -1242,6 +1242,93 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
     }
 """
 
+class Token:
+    def __init__(self, balances, rewards, emissions, total_supply):
+        self.balances = balances
+        self.rewards = rewards
+        self.emissions = emissions
+        self.total_supply = total_supply
+
+
+def create_start(epoch_count, user_count, min_shares, shares_range, decimals, determinsitic):
+
+    ## Start is always a token that is not a reward nor an emission
+
+    balances = []
+    rewards = []
+    emissions = []
+
+    ## Cumulative amount that increases by reward on each epoch
+    ## 0 -> reward_0
+    ## n > reward_n-1 + reward_n
+    total_supply = []
+
+
+    for epoch in range(epoch_count):
+        balances.append([])
+        rewards.append([])
+        emissions.append([])
+        total_supply.append([])
+
+    for user in range(user_count):
+        ## User Balance
+        balance = (
+            (int(random() * shares_range) + min_shares) * 10**decimals
+            if not determinsitic
+            else min_shares * 10**decimals
+        )
+        balances[0].append(balance)
+
+        total_supply[0] += balance
+    
+    return Token(balances, rewards, emissions, total_supply)
+
+
+def create_reward_token(epoch_count, min_reward, reward_range, decimals, determinsitic, with_emission = True):
+    ## Reward means no emissions
+    ## Add the flip somewhere else
+    
+    balances = []
+    rewards = []
+    emissions = []
+    total_supply = []
+
+    for epoch in range(epoch_count):
+        balances.append([]) ## 0
+
+        rewards.append([])
+        emissions.append([]) ## 0
+        total_supply.append([])
+
+    for epoch in range(epoch_count):
+        ## Create reward always
+        reward = (
+            (int(random() * reward_range) + min_reward) * 10**decimals
+            if not determinsitic
+            else min_reward * 10**decimals
+        )
+        rewards[epoch].append(reward)
+
+        if(epoch > 0):
+            total_supply[epoch] = total_supply[epoch - 1]
+        
+        total_supply[epoch] += reward
+
+        if(with_emission):
+            ## Emission and reward math is same, TODO: deal with it
+
+            emission = (
+                (int(random() * reward_range) + min_reward) * 10**decimals
+                if not determinsitic
+                else min_reward * 10**decimals
+            )
+            emissions[epoch].append(emission)
+            
+            total_supply[epoch] += emission
+
+    
+    return Token(balances, rewards, emissions, total_supply)
+
 ## Claim Sequence Notation | ClaimSequence
 
 """
@@ -1252,16 +1339,12 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
     ## Linked list like data structure
     claimSequence[start, 
                             next, 
-                            next, 
+                            next,   next (TODO)
                             next,   next, 
                                     next
     ]
 
-    claimSequence(start, Next[])
-
-    Next = [
-        (reward to claim) token , (claim Emissions) bool,
-    ]
+    claimSequence(start, claimData[])
 
     claimData {
         Tokens: [address, bool], ## Rewards to claim, and should we claim emissions as well?
@@ -1283,6 +1366,12 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
     }
 """
 
+def create_claim_sequence():
+    ## TODO: Generalize
+
+    ## For now just return A -> B -> B' -> C -> C'
+    return 
+
 ## Validate claimSequence
 
 """
@@ -1296,7 +1385,12 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
 """
 
 def is_valid_next_step(vault, reward, previous_paths):
-    assert False ## TODO: What does previous_paths[vault] look like?
+    ## previous_paths[vault]: tokens[]
+    ## List of tokens contains
+    if reward in previous_paths[vault]:
+        ## Revert if already there
+        assert False
+
 
 ## Claim Math
 
