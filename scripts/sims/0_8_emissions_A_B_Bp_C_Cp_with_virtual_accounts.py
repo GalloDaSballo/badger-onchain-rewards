@@ -1,6 +1,9 @@
 from random import seed
 from random import random
 from copy import deepcopy
+
+## TODO: Get objects / Maps so it's easier to handle
+
 """
   Visualization:
     https://miro.com/app/board/uXjVPfL1y3I=/
@@ -1055,31 +1058,6 @@ If the starting vault is different, just do n claims for each starting node
 The sum of all partial claims will be equal to the total claim (minus rounding due to integer division)
 """
 
-def get_reward(balance, total_supply, rewards, epoch):
-    """
-        Returns (claimed, dust)
-    """
-
-    divisor = total_supply[epoch] ## TODO: Decide if using a secondary function
-
-    claimed = balance * rewards[epoch] // divisor
-    dust = balance * rewards[epoch] % divisor
-
-    return (claimed, dust)
-
-def get_emission(balance, total_supply, emissions, epoch):
-    """
-        Given an (updated e.g already claimed reward) balance, claim the emissions for this epoch
-        Returns (claimed, dust)
-    """
-    ## Any older emission is assumed to be claimed
-    ## Because we assume nothing from the future is in, we can just subtract the one from the current claim
-    divisor = total_supply[epoch] - emissions[epoch]
-
-    claimed = balance * emissions[epoch] // divisor
-    dust = balance * emissions[epoch] % divisor
-
-    return (claimed, dust)
 
 
 
@@ -1162,7 +1140,7 @@ def get_emission(balance, total_supply, emissions, epoch):
 """
 
 
-## How do we codify Segments???
+## How do we codify Segments?
 
 """
     Start
@@ -1196,4 +1174,205 @@ def get_emission(balance, total_supply, emissions, epoch):
     N -> A -> M
 
     Meaning that Start should have been N and not A
+
+    ## NOTE: Worth checking this on Solidity, is uberPath or something, as it's not gas efficient
+
+
+    ## TODO: What happens on a cross?
+
+    A -> B
+    A -> C
+    A -> D
+    A -> D -> B
+
+    B -> A
+    B -> C
+    B -> D
+
+    As sum of paths
+
+    A -> D -> B -> A
+    A -> D -> B -> C
+    A -> D -> B -> D
+
+    In reality
+
+    A -> D -> B -> A
+              B -> C
+              B -> D
+    
+
+    A -> D
+    D -> B
+
+    B -> A
+    B -> C
+    B -> D
+
+    D -> B ??? TODO: This is where problem arise
+
+    ## RULE: We must revert if you claim the same pair / path twice
+
+    ## What happens if something is a recursive sub path of something else
+    ## What math would help?
 """
+
+## Vault / Token Notation | TokenData
+
+"""
+    For the purposes of this sim:
+
+    A -> B -> B' -> C -> C'
+
+    Where each of them will have
+    {
+        ## For each epoch each user. After a claim, increase current
+        ## At beginning of new epoch, port over from prev epoch bal
+        ## balances[epoch][user] = balances[epoch-1][user]
+        balances[epoch][user]: 
+
+        ## How many rewards available this epoch
+        rewards[epoch][token]
+
+        ## How many emissions available this epoch (emission = reward for holding vault)
+        emissions[epoch]
+
+        ## Sum of balances + rewards + emissions
+        total_supply[epoch]: 
+    }
+"""
+
+## Claim Sequence Notation | ClaimSequence
+
+"""
+    tokens{
+        [id]: TokenData
+    }
+
+    ## Linked list like data structure
+    claimSequence[start, 
+                            next, 
+                            next, 
+                            next,   next, 
+                                    next
+    ]
+
+    claimSequence(start, Next[])
+
+    Next = [
+        (reward to claim) token , (claim Emissions) bool,
+    ]
+
+    claimData {
+        Tokens: [address, bool], ## Rewards to claim, and should we claim emissions as well?
+        Next: claimData[]
+    }
+    
+    Classic Linked List
+    TODO: Check Austin's work
+    https://medium.com/coinmonks/linked-lists-in-solidity-cfd967af389b
+
+
+    received{
+        [id]: 
+            [user]:
+                {
+                    rewards[epoch]
+                    emissions[epoch]
+                }   
+    }
+"""
+
+## Validate claimSequence
+
+"""
+    Loop over the sequence
+
+    Next.rewards[0][token] MUST be non-zero.
+
+    In Solidity we won't be perfoming the check
+
+    A subsequence zero epoch is acceptable, but first one needs to be non-zero
+"""
+
+def is_valid_next_step(vault, reward, previous_paths):
+    assert False ## TODO: What does previous_paths[vault] look like?
+
+## Claim Math
+
+"""
+    ## From Claim proof
+        For Each V ∈ Vs:
+        Claim(V, n, i) ===
+        {
+            vi / Tvi * Ri; if V != R; Rewards Case
+            vi / (Tvi - Ri); if V == R; Emissions Case
+        }
+"""
+
+def get_reward(balance, total_supply, rewards, epoch, token):
+    """
+        Use it to receive A -> B type rewards
+        Where A != B
+
+        Returns (claimed, dust)
+    """
+    divisor = total_supply[epoch]
+
+    claimed = balance * rewards[epoch][token] // divisor
+    dust = balance * rewards[epoch][token] % divisor
+
+    return (claimed, dust)
+
+def get_emission(balance, total_supply, emissions, epoch):
+    """
+        Given an (updated e.g already claimed reward) balance, claim the emissions for this epoch
+
+        Use it to receive B -> B' type rewards
+        Where B == B' they are the same token
+
+        Returns (claimed, dust)
+    """
+    ## Any older emission is assumed to be claimed
+    ## Because we assume nothing from the future is in, we can just subtract the one from the current claim
+    divisor = total_supply[epoch] - emissions[epoch]
+
+    claimed = balance * emissions[epoch] // divisor
+    dust = balance * emissions[epoch] % divisor
+
+    return (claimed, dust)
+
+## Fairness Check at end
+
+"""
+    User Deposited / TotalSupply = Expected %
+
+
+    Recursive validation via:
+    -> Expected %
+    -> Vs realized %
+
+    NOTE: Can do this because we prove that claiming every week vs once per year is equivalent
+    ## As our divisor is not relative to the value
+"""
+
+def fairness_check(user_count, epoch_count, balances, total_supply, received_rewards, total_rewards, received_emissions, total_emissions):
+
+    for user in range(user_count):
+        for epoch in range(epoch_count):
+            check_fair_received(balances[epoch][user], total_supply, received_rewards[epoch], total_rewards[epoch], received_emissions[epoch], total_emissions[epoch])
+
+    ## TODO: Sum it all up
+
+    ## Is the sum of all tokens fair as well?
+
+
+def check_fair_received(balance, total_supply, received_reward, total_rewards, received_emission, total_emissions):
+
+    expected_percent = balance / total_supply
+
+    ## TODO: Change to allow dust
+    assert total_rewards / received_reward == expected_percent
+    assert received_emission / total_emissions == expected_percent
+
+    ## Maybe just check on sum, although I think it will always need to be the correct ratio
