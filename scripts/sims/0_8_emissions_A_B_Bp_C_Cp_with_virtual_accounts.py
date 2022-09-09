@@ -1247,11 +1247,16 @@ def create_start(epoch_count, user_count, min_shares, shares_range, decimals, de
     ## Cumulative amount that increases by reward on each epoch
     ## 0 -> reward_0
     ## n > reward_n-1 + reward_n
-    total_supply = [0]
+    total_supply = []
 
 
     for epoch in range(epoch_count):
         balances.append([])
+        total_supply.append(0)
+        for user in range(user_count):
+            balances[epoch].append(0)
+
+    print("create_start balances", balances)
 
     for user in range(user_count):
         ## User Balance
@@ -1260,7 +1265,7 @@ def create_start(epoch_count, user_count, min_shares, shares_range, decimals, de
             if not determinsitic
             else min_shares * 10**decimals
         )
-        balances[0].append(balance)
+        balances[0][user] = balance
 
         total_supply[0] += balance
     
@@ -1427,6 +1432,10 @@ def get_reward(balance, total_supply, rewards):
     ## TODO: Do we need rewards[epoch][token] or not? Multi claim / Branchful claims
     divisor = total_supply
 
+    print("balance", balance)
+    print("rewards", rewards)
+    print("divisor", divisor)
+
     claimed = balance * rewards // divisor
     dust = balance * rewards % divisor
 
@@ -1517,6 +1526,8 @@ def main():
         for user in range(user_count):
             print("User Ratio")
             print(start_token.balances[0][user] / start_token.total_supply[0])
+
+            print("(start_token.balances[epoch][user]", start_token.balances[epoch][user])
             
             (gained_b, dust_b) = get_reward(start_token.balances[epoch][user], start_token.total_supply[epoch], b_token.rewards[epoch])
             print("Gained B ratio")
@@ -1529,6 +1540,10 @@ def main():
 
             total_rewards += gained_b
             total_emissions += gained_b_emission
+
+            ## TODO: Fairness Check
+
+            ## TODO: Port over for next epoch
         
         ## End of epoch recap
         print("Fairness / Distribution Ratio")
