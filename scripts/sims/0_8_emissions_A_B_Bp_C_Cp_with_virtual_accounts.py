@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from random import seed
 from random import random
 from copy import deepcopy
@@ -826,23 +828,6 @@ def multi_claim_sim():
     return (res_b , res_c)
 
 
-def main():
-    fair_count = 0
-    for x in range(ROUNDS):
-        (res_b, res_c) = multi_claim_sim()
-        if res_b < 1e-18 and res_c < 1e-18 :
-            fair_count += 1
-        else:
-            print("Unfair")
-            print(res_b)
-            print(res_c)
-
-    print("Overall number of passing tests")
-    print(fair_count)
-    print("Overall Percent of passing tests")
-    print(fair_count / ROUNDS * 100)
-
-
 def process_virtual_account_emissions(
     balance,
     total_points,
@@ -1243,11 +1228,12 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
 """
 
 class Token:
-    def __init__(self, balances, rewards, emissions, total_supply):
+    def __init__(self, id, balances, rewards, emissions, total_supply):
         self.balances = balances
         self.rewards = rewards
         self.emissions = emissions
         self.total_supply = total_supply
+        self.id = id
 
 
 def create_start(epoch_count, user_count, min_shares, shares_range, decimals, determinsitic):
@@ -1255,20 +1241,17 @@ def create_start(epoch_count, user_count, min_shares, shares_range, decimals, de
     ## Start is always a token that is not a reward nor an emission
 
     balances = []
-    rewards = []
-    emissions = []
+    rewards = [0]
+    emissions = [0]
 
     ## Cumulative amount that increases by reward on each epoch
     ## 0 -> reward_0
     ## n > reward_n-1 + reward_n
-    total_supply = []
+    total_supply = [0]
 
 
     for epoch in range(epoch_count):
         balances.append([])
-        rewards.append([])
-        emissions.append([])
-        total_supply.append([])
 
     for user in range(user_count):
         ## User Balance
@@ -1281,24 +1264,24 @@ def create_start(epoch_count, user_count, min_shares, shares_range, decimals, de
 
         total_supply[0] += balance
     
-    return Token(balances, rewards, emissions, total_supply)
+    return Token("a", balances, rewards, emissions, total_supply)
 
 
-def create_reward_token(epoch_count, min_reward, reward_range, decimals, determinsitic, with_emission = True):
+def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, determinsitic, with_emission = True):
     ## Reward means no emissions
     ## Add the flip somewhere else
     
     balances = []
     rewards = []
-    emissions = []
-    total_supply = []
+    emissions = [0]
+    total_supply = [0]
 
     for epoch in range(epoch_count):
         balances.append([]) ## 0
 
-        rewards.append([])
-        emissions.append([]) ## 0
-        total_supply.append([])
+        rewards.append(0)
+        emissions.append(0)
+        total_supply.append(0)
 
     for epoch in range(epoch_count):
         ## Create reward always
@@ -1307,7 +1290,7 @@ def create_reward_token(epoch_count, min_reward, reward_range, decimals, determi
             if not determinsitic
             else min_reward * 10**decimals
         )
-        rewards[epoch].append(reward)
+        rewards[epoch] = reward
 
         if(epoch > 0):
             total_supply[epoch] = total_supply[epoch - 1]
@@ -1322,12 +1305,12 @@ def create_reward_token(epoch_count, min_reward, reward_range, decimals, determi
                 if not determinsitic
                 else min_reward * 10**decimals
             )
-            emissions[epoch].append(emission)
+            emissions[epoch] = emission
             
             total_supply[epoch] += emission
 
     
-    return Token(balances, rewards, emissions, total_supply)
+    return Token(name, balances, rewards, emissions, total_supply)
 
 ## Claim Sequence Notation | ClaimSequence
 
@@ -1366,11 +1349,32 @@ def create_reward_token(epoch_count, min_reward, reward_range, decimals, determi
     }
 """
 
+class TokenClaimData:
+    def __init__(self, token, claim_emission):
+        self.token = token
+        self.claim_emission = claim_emission
+
+class ClaimData:
+    def __init__(self, tokenClaimDatas: TokenClaimData, next):
+        self.data = tokenClaimDatas
+        self.next = next
+
 def create_claim_sequence():
     ## TODO: Generalize
 
     ## For now just return A -> B -> B' -> C -> C'
-    return 
+    a = TokenClaimData("a", False)
+
+    ## Declare C with Emissions
+    c = TokenClaimData("c", True)
+
+    ## Declare B with emissions
+    b = TokenClaimData("b", True)
+
+    ## A claims B, which claims C
+    a_data = ClaimData([a], ClaimData([b], ClaimData([c], None)))
+
+    return a_data
 
 ## Validate claimSequence
 
@@ -1384,12 +1388,20 @@ def create_claim_sequence():
     A subsequence zero epoch is acceptable, but first one needs to be non-zero
 """
 
-def is_valid_next_step(vault, reward, previous_paths):
-    ## previous_paths[vault]: tokens[]
-    ## List of tokens contains
-    if reward in previous_paths[vault]:
-        ## Revert if already there
-        assert False
+def is_valid_sequence(vault, path):
+    tokens_found = []
+
+    ## Ensure we are starting with vault
+    assert path.data[0].token == vault
+
+    while path.next != None:
+        path = path.next
+
+        data = path.data
+
+        for entry in data:
+            assert entry.token not in tokens_found
+            tokens_found.append(entry.token)
 
 
 ## Claim Math
@@ -1404,21 +1416,23 @@ def is_valid_next_step(vault, reward, previous_paths):
         }
 """
 
-def get_reward(balance, total_supply, rewards, epoch, token):
+def get_reward(balance, total_supply, rewards):
     """
         Use it to receive A -> B type rewards
         Where A != B
 
         Returns (claimed, dust)
     """
-    divisor = total_supply[epoch]
 
-    claimed = balance * rewards[epoch][token] // divisor
-    dust = balance * rewards[epoch][token] % divisor
+    ## TODO: Do we need rewards[epoch][token] or not? Multi claim / Branchful claims
+    divisor = total_supply
+
+    claimed = balance * rewards // divisor
+    dust = balance * rewards % divisor
 
     return (claimed, dust)
 
-def get_emission(balance, total_supply, emissions, epoch):
+def get_emission(balance, total_supply, emissions):
     """
         Given an (updated e.g already claimed reward) balance, claim the emissions for this epoch
 
@@ -1429,10 +1443,10 @@ def get_emission(balance, total_supply, emissions, epoch):
     """
     ## Any older emission is assumed to be claimed
     ## Because we assume nothing from the future is in, we can just subtract the one from the current claim
-    divisor = total_supply[epoch] - emissions[epoch]
+    divisor = total_supply - emissions
 
-    claimed = balance * emissions[epoch] // divisor
-    dust = balance * emissions[epoch] % divisor
+    claimed = balance * emissions // divisor
+    dust = balance * emissions % divisor
 
     return (claimed, dust)
 
@@ -1470,3 +1484,53 @@ def check_fair_received(balance, total_supply, received_reward, total_rewards, r
     assert received_emission / total_emissions == expected_percent
 
     ## Maybe just check on sum, although I think it will always need to be the correct ratio
+
+
+def main():
+    seq = create_claim_sequence()
+
+    ## NOTE: Tested to work
+    is_valid_sequence("a", seq)
+
+    epoch_count = 2
+    user_count = 2
+    min_shares = MIN_SHARES
+    shares_range = MIN_SHARES ## TODO
+    decimals = SHARES_DECIMALS
+    determinsitic = DETERMINISTIC
+
+
+    start_token = create_start(epoch_count, user_count, min_shares, shares_range, decimals, determinsitic)
+    b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, determinsitic)
+    c_token = create_reward_token("c", epoch_count, min_shares, shares_range, decimals, determinsitic)
+    
+    pprint(vars(start_token))
+    pprint(vars(b_token))
+    pprint(vars(c_token))
+    
+
+    for epoch in range(epoch_count):
+        print("Epoch", epoch)
+
+        total_rewards = 0
+        total_emissions = 0
+        for user in range(user_count):
+            print("User Ratio")
+            print(start_token.balances[0][user] / start_token.total_supply[0])
+            
+            (gained_b, dust_b) = get_reward(start_token.balances[epoch][user], start_token.total_supply[epoch], b_token.rewards[epoch])
+            print("Gained B ratio")
+            print(gained_b / b_token.rewards[epoch])
+
+            (gained_b_emission, dust_b_emission) = get_emission(gained_b, b_token.total_supply[epoch], b_token.emissions[epoch])
+
+            print("Gained B Emissions Ratio")
+            print(gained_b_emission / b_token.emissions[epoch])
+
+            total_rewards += gained_b
+            total_emissions += gained_b_emission
+        
+        ## End of epoch recap
+        print("Fairness / Distribution Ratio")
+        print(total_rewards / b_token.rewards[epoch])
+        print(total_emissions / b_token.emissions[epoch])
