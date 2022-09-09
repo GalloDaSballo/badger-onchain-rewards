@@ -1354,6 +1354,74 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
     }
 """
 
+def get_random_user_start_balance():
+    balance = (
+        (int(random() * MIN_SHARES) + MIN_SHARES) * 10**SHARES_DECIMALS
+        if not DETERMINISTIC
+        else MIN_SHARES * 10**SHARES_DECIMALS
+    )
+
+    return balance
+
+
+
+class UserBalances:
+    def __init__(self, start_token, tokens, epochs):
+        ## Create empty token balances
+        empty_balance = []
+        for epoch in range(epochs):
+            empty_balance.append(0)
+        
+        start_token_balance = empty_balance.copy()
+        start_token_balance[0] = get_random_user_start_balance()
+
+        setattr(self, start_token, empty_balance.copy())
+
+        for token in tokens:
+            setattr(self, token, empty_balance.copy())
+
+        ## Limit of epochs, just for addBalanceAtEpoch
+        self.epochs = epochs
+    
+    def getBalances(self, token_name):
+        return getattr(self, token_name)
+    
+    def getBalanceAtEpoch(self, token_name, epoch):
+        balances = getattr(self, token_name)
+        return balances[epoch]
+    
+    def portBalanceToNextEpoch(self, token_name, epoch):
+        if(epoch + 1 > self.epochs):
+            return False
+        
+        balances = getattr(self, token_name)
+        
+        balance_old = balances[epoch]
+        balances[epoch + 1] += balance_old
+
+        setattr(self, token_name, balances.copy())
+    
+    def addBalanceAtEpoch(self, token_name, epoch, amount):
+        if(epoch > self.epochs):
+            return False
+        
+        balances = getattr(self, token_name)
+        balances[epoch] += amount
+
+        setattr(self, token_name, balances.copy())
+
+
+def create_users(epoch_count, user_count, start_token, tokens):
+    users = []
+    for user in range(user_count):
+        new_user = UserBalances(start_token, tokens, epoch_count)
+        users.append(new_user)
+
+        print(vars(new_user))
+    
+    return users
+
+    
 class TokenClaimData:
     def __init__(self, token, claim_emission):
         self.token = token
@@ -1508,12 +1576,11 @@ def main():
     decimals = SHARES_DECIMALS
     determinsitic = DETERMINISTIC
 
+    users = create_users(epoch_count, user_count, "a", ["b", "c"])
 
-    start_token = create_start(epoch_count, user_count, min_shares, shares_range, decimals, determinsitic)
     b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, determinsitic)
     c_token = create_reward_token("c", epoch_count, min_shares, shares_range, decimals, determinsitic)
     
-    pprint(vars(start_token))
     pprint(vars(b_token))
     pprint(vars(c_token))
     
