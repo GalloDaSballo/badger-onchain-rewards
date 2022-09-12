@@ -1238,12 +1238,13 @@ def get_start_token_total_supply(users, token_name):
 
 
 class Token:
-    def __init__(self, id, balances, rewards, emissions, total_supply):
+    def __init__(self, id, balances, rewards, emissions, total_supply, noise = []):
         self.balances = balances
         self.rewards = rewards
         self.emissions = emissions
         self.total_supply = total_supply
         self.id = id
+        self.noise = noise
 
 
 def create_start(epoch_count, user_count, min_shares, shares_range, decimals, determinsitic):
@@ -1291,9 +1292,14 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
     emissions = [0]
     total_supply = [0]
 
+    ## Balances that are entitled to emissions and not reward
+    ## Can just be a single amount per epoch as you can imagine the vector or holders and sum it up to one user
+    noise = []
+
     for epoch in range(epoch_count):
         balances.append([]) ## 0
 
+        noise.append(0)
         rewards.append(0)
         emissions.append(0)
         total_supply.append(0)
@@ -1309,7 +1315,19 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
 
         if(epoch > 0):
             total_supply[epoch] = total_supply[epoch - 1]
-        
+            noise[epoch] = noise[epoch - 1] ## Port over noise from prev as it's cumulative
+        else:
+            ## If epoch is 0 add the noise
+            ## We port it over for math later
+            noise_bal = (
+                (int(random() * reward_range) + min_reward) * 10**decimals
+                if not determinsitic
+                else min_reward * 10**decimals
+            )
+            noise[epoch] = noise_bal
+            total_supply[epoch] += noise_bal
+
+
         total_supply[epoch] += reward
 
         if(with_emission):
@@ -1325,7 +1343,7 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
             total_supply[epoch] += emission
 
     
-    return Token(name, balances, rewards, emissions, total_supply)
+    return Token(name, balances, rewards, emissions, total_supply, noise)
 
 ## Claim Sequence Notation | ClaimSequence
 
@@ -1580,12 +1598,12 @@ def main():
     ## NOTE: Tested to work
     is_valid_sequence("a", seq)
 
-    epoch_count = 69
-    user_count = 200
+    epoch_count = 2
+    user_count = 2
     min_shares = MIN_SHARES
     shares_range = MIN_SHARES ## TODO
     decimals = SHARES_DECIMALS
-    determinsitic = False
+    determinsitic = True
 
     users = create_users(epoch_count, user_count, "a", ["b", "c"])
     start_token_total_supply = get_start_token_total_supply(users, "a")
@@ -1623,7 +1641,7 @@ def main():
 
             (gained_b_emission, dust_b_emission) = get_emission(users[user].getBalanceAtEpoch("b", epoch), b_token.total_supply[epoch], b_token.emissions[epoch])
 
-            ## TODO: Update user Balance for B with B'
+            ## Update user Balance for B with B'
             users[user].addBalanceAtEpoch("b", epoch, gained_b_emission)
 
             print("Gained B Emissions Ratio")
@@ -1634,27 +1652,58 @@ def main():
             total_emissions_b += gained_b_emission
 
 
-            ## TODO: B -> C
-            ## B -> C'
-
-
-            ## TODO: Get totalSupply of B at epoch
-
             (gained_c, dust_c) = get_reward(users[user].getBalanceAtEpoch("b", epoch), b_token.total_supply[epoch], c_token.rewards[epoch])
 
-            ## TODO Port over C balance
+            ## Port over C balance
             users[user].addBalanceAtEpoch("c", epoch, gained_c)
             
             (gained_c_emission, dust_c_emission) = get_emission(users[user].getBalanceAtEpoch("c", epoch), c_token.total_supply[epoch], c_token.emissions[epoch])
 
-            ## TODO Port over C balance after C'
+            ## Port over C balance after C'
             users[user].addBalanceAtEpoch("c", epoch, gained_c_emission)
 
             total_rewards_c += gained_c
             total_emissions_c += gained_c_emission
 
+
+        ## Once Per Epoch we also account for the noise
+        ## NOTE: Added Noise Claim for Current Token
+        (gained_b_emission_from_noise, dust_b_emission_from_noise) = get_emission(b_token.noise[epoch], b_token.total_supply[epoch], b_token.emissions[epoch])
+        print("gained_b_emission_from_noise", gained_b_emission_from_noise)
+        if epoch + 1 < epoch_count:
+            b_token.noise[epoch + 1] += gained_b_emission_from_noise
         
-        ## End of epoch recap
+        total_emissions_b += gained_b_emission_from_noise
+
+        ## Update current for below
+        b_token.noise[epoch] += gained_b_emission_from_noise
+
+        ## TODO: Holder of B also needs to receive C
+        (gained_c_rewards_from_noise, dust_c_rewards_from_noise) = get_reward(b_token.noise[epoch], b_token.total_supply[epoch], c_token.emissions[epoch])
+
+        if epoch + 1 < epoch_count:
+            c_token.noise[epoch + 1] += gained_c_rewards_from_noise
+        
+        total_rewards_c += gained_c_rewards_from_noise
+
+        ## Update current for below
+        c_token.noise[epoch] += gained_c_rewards_from_noise
+
+        ## NOTE: Added Noise Claim for C Token
+        (gained_c_emission_from_noise, dust_c_emission_from_noise) = get_emission(c_token.noise[epoch ], c_token.total_supply[epoch], c_token.emissions[epoch])
+
+        if epoch + 1 < epoch_count:
+            c_token.noise[epoch + 1] += gained_c_emission_from_noise
+        
+        total_emissions_c += gained_c_emission_from_noise
+
+        ## Update current for below
+        c_token.noise[epoch] += gained_c_emission_from_noise
+
+        
+        ## End of epoch recap 
+        ## TODO: Refactor to capture individual and total claims
+        ## TODO: Use that to generalize claim fairness math
         print("Fairness / Distribution Ratio for Epoch", epoch)
         rewards_ratio_b = total_rewards_b / b_token.rewards[epoch]
         b_emissions_ratio_b = total_emissions_b / b_token.emissions[epoch]
