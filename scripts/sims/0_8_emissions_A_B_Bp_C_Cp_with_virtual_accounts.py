@@ -1580,12 +1580,12 @@ def main():
     ## NOTE: Tested to work
     is_valid_sequence("a", seq)
 
-    epoch_count = 2
-    user_count = 2
+    epoch_count = 69
+    user_count = 200
     min_shares = MIN_SHARES
     shares_range = MIN_SHARES ## TODO
     decimals = SHARES_DECIMALS
-    determinsitic = DETERMINISTIC
+    determinsitic = False
 
     users = create_users(epoch_count, user_count, "a", ["b", "c"])
     start_token_total_supply = get_start_token_total_supply(users, "a")
@@ -1603,8 +1603,12 @@ def main():
     for epoch in range(epoch_count):
         print("Epoch", epoch)
 
-        total_rewards = 0
-        total_emissions = 0
+        total_rewards_b = 0
+        total_emissions_b = 0
+
+        total_rewards_c = 0
+        total_emissions_c = 0
+
         for user in range(user_count):
             print("User Ratio")
             print(users[user].getBalanceAtEpoch("a", epoch) / start_token_total_supply)
@@ -1625,23 +1629,47 @@ def main():
             print("Gained B Emissions Ratio")
             print(gained_b_emission / b_token.emissions[epoch])
 
-            ## TODO: Port over balances to next epoch
 
-            total_rewards += gained_b
-            total_emissions += gained_b_emission
+            total_rewards_b += gained_b
+            total_emissions_b += gained_b_emission
 
-            ## TODO: Fairness Check
 
-            ## TODO: Port over for next epoch
+            ## TODO: B -> C
+            ## B -> C'
+
+
+            ## TODO: Get totalSupply of B at epoch
+
+            (gained_c, dust_c) = get_reward(users[user].getBalanceAtEpoch("b", epoch), b_token.total_supply[epoch], c_token.rewards[epoch])
+
+            ## TODO Port over C balance
+            users[user].addBalanceAtEpoch("c", epoch, gained_c)
+            
+            (gained_c_emission, dust_c_emission) = get_emission(users[user].getBalanceAtEpoch("c", epoch), c_token.total_supply[epoch], c_token.emissions[epoch])
+
+            ## TODO Port over C balance after C'
+            users[user].addBalanceAtEpoch("c", epoch, gained_c_emission)
+
+            total_rewards_c += gained_c
+            total_emissions_c += gained_c_emission
+
         
         ## End of epoch recap
         print("Fairness / Distribution Ratio for Epoch", epoch)
-        rewards_ratio = total_rewards / b_token.rewards[epoch]
-        b_emissions_ratio = total_emissions / b_token.emissions[epoch]
-        print(rewards_ratio)
-        print(b_emissions_ratio)
+        rewards_ratio_b = total_rewards_b / b_token.rewards[epoch]
+        b_emissions_ratio_b = total_emissions_b / b_token.emissions[epoch]
+        print(rewards_ratio_b)
+        print(b_emissions_ratio_b)
 
-        
-    
-        assert rewards_ratio == 1
-        assert b_emissions_ratio == 1
+        assert rewards_ratio_b == 1
+        assert b_emissions_ratio_b == 1
+
+
+        print("Fairness / Distribution Ratio for Epoch for C", epoch)
+        rewards_ratio_c = total_rewards_c / c_token.rewards[epoch]
+        emissions_ratio_c = total_emissions_c / c_token.emissions[epoch]
+        print(rewards_ratio_c)
+        print(emissions_ratio_c)
+
+        assert rewards_ratio_c == 1
+        assert emissions_ratio_c == 1
