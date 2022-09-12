@@ -1313,6 +1313,8 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
         )
         rewards[epoch] = reward
 
+        ## Port over Total Supply
+        ## Also add noise and port it over for all epochs
         if(epoch > 0):
             total_supply[epoch] = total_supply[epoch - 1]
             noise[epoch] = noise[epoch - 1] ## Port over noise from prev as it's cumulative
@@ -1598,8 +1600,8 @@ def main():
     ## NOTE: Tested to work
     is_valid_sequence("a", seq)
 
-    epoch_count = 2
-    user_count = 2
+    epoch_count = 3
+    user_count = 3
     min_shares = MIN_SHARES
     shares_range = MIN_SHARES ## TODO
     decimals = SHARES_DECIMALS
@@ -1666,39 +1668,45 @@ def main():
             total_emissions_c += gained_c_emission
 
 
+        ### ==== NOISE ==== ###
         ## Once Per Epoch we also account for the noise
         ## NOTE: Added Noise Claim for Current Token
         (gained_b_emission_from_noise, dust_b_emission_from_noise) = get_emission(b_token.noise[epoch], b_token.total_supply[epoch], b_token.emissions[epoch])
-        print("gained_b_emission_from_noise", gained_b_emission_from_noise)
+        ## Update current for below
+        b_token.noise[epoch] += gained_b_emission_from_noise
+
         if epoch + 1 < epoch_count:
-            b_token.noise[epoch + 1] += gained_b_emission_from_noise
+            ## Port over old balance as well
+            b_token.noise[epoch + 1] = b_token.noise[epoch]
         
         total_emissions_b += gained_b_emission_from_noise
 
-        ## Update current for below
-        b_token.noise[epoch] += gained_b_emission_from_noise
+
 
         ## TODO: Holder of B also needs to receive C
         (gained_c_rewards_from_noise, dust_c_rewards_from_noise) = get_reward(b_token.noise[epoch], b_token.total_supply[epoch], c_token.emissions[epoch])
 
-        if epoch + 1 < epoch_count:
-            c_token.noise[epoch + 1] += gained_c_rewards_from_noise
-        
-        total_rewards_c += gained_c_rewards_from_noise
-
         ## Update current for below
         c_token.noise[epoch] += gained_c_rewards_from_noise
 
-        ## NOTE: Added Noise Claim for C Token
-        (gained_c_emission_from_noise, dust_c_emission_from_noise) = get_emission(c_token.noise[epoch ], c_token.total_supply[epoch], c_token.emissions[epoch])
-
         if epoch + 1 < epoch_count:
-            c_token.noise[epoch + 1] += gained_c_emission_from_noise
+            ## Port over old balance as well
+            c_token.noise[epoch + 1] = c_token.noise[epoch]
         
-        total_emissions_c += gained_c_emission_from_noise
+        total_rewards_c += gained_c_rewards_from_noise
+
+
+
+        ## NOTE: Added Noise Claim for C Token
+        (gained_c_emission_from_noise, dust_c_emission_from_noise) = get_emission(c_token.noise[epoch], c_token.total_supply[epoch], c_token.emissions[epoch])
 
         ## Update current for below
         c_token.noise[epoch] += gained_c_emission_from_noise
+
+        if epoch + 1 < epoch_count:
+            c_token.noise[epoch + 1] = c_token.noise[epoch]
+        
+        total_emissions_c += gained_c_emission_from_noise
 
         
         ## End of epoch recap 
