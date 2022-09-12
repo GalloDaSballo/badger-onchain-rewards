@@ -1227,6 +1227,16 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
     }
 """
 
+def get_start_token_total_supply(users, token_name):
+    total_supply = 0
+
+    for user in users:
+        user_bal = user.getBalanceAtEpoch("a", 0)
+        total_supply += user_bal
+
+    return total_supply
+
+
 class Token:
     def __init__(self, id, balances, rewards, emissions, total_supply):
         self.balances = balances
@@ -1375,7 +1385,7 @@ class UserBalances:
         start_token_balance = empty_balance.copy()
         start_token_balance[0] = get_random_user_start_balance()
 
-        setattr(self, start_token, empty_balance.copy())
+        setattr(self, start_token, start_token_balance.copy())
 
         for token in tokens:
             setattr(self, token, empty_balance.copy())
@@ -1388,25 +1398,26 @@ class UserBalances:
     
     def getBalanceAtEpoch(self, token_name, epoch):
         balances = getattr(self, token_name)
-        return balances[epoch]
-    
-    def portBalanceToNextEpoch(self, token_name, epoch):
-        if(epoch + 1 > self.epochs):
-            return False
-        
-        balances = getattr(self, token_name)
-        
-        balance_old = balances[epoch]
-        balances[epoch + 1] += balance_old
 
-        setattr(self, token_name, balances.copy())
+        ## Saves us having to port over balances
+        ## If > 0 and if not last epoch
+        ## NOTE: Assumes we always loop from 0 -> n stepwise, skipping one epoch = break the logic
+        if(balances[epoch] == 0 and epoch > 0):
+            balances[epoch] = balances[epoch - 1]
+            setattr(self, token_name, balances.copy())
+        
+        return balances[epoch]
     
     def addBalanceAtEpoch(self, token_name, epoch, amount):
         if(epoch > self.epochs):
             return False
         
+        ## Lookback + port over balance
+        balanceAtEpoch = self.getBalanceAtEpoch(token_name, epoch)
+        balanceAtEpoch += amount
+
         balances = getattr(self, token_name)
-        balances[epoch] += amount
+        balances[epoch] = balanceAtEpoch
 
         setattr(self, token_name, balances.copy())
 
@@ -1577,6 +1588,7 @@ def main():
     determinsitic = DETERMINISTIC
 
     users = create_users(epoch_count, user_count, "a", ["b", "c"])
+    start_token_total_supply = get_start_token_total_supply(users, "a")
 
     b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, determinsitic)
     c_token = create_reward_token("c", epoch_count, min_shares, shares_range, decimals, determinsitic)
@@ -1584,6 +1596,9 @@ def main():
     pprint(vars(b_token))
     pprint(vars(c_token))
     
+    ## TODO: Continue
+
+    ## A -> B -> B'
 
     for epoch in range(epoch_count):
         print("Epoch", epoch)
@@ -1592,18 +1607,25 @@ def main():
         total_emissions = 0
         for user in range(user_count):
             print("User Ratio")
-            print(start_token.balances[0][user] / start_token.total_supply[0])
+            print(users[user].getBalanceAtEpoch("a", epoch) / start_token_total_supply)
 
-            print("(start_token.balances[epoch][user]", start_token.balances[epoch][user])
+            print('users[user].getBalanceAtEpoch("a", 0)', users[user].getBalanceAtEpoch("a", epoch))
             
-            (gained_b, dust_b) = get_reward(start_token.balances[epoch][user], start_token.total_supply[epoch], b_token.rewards[epoch])
+            (gained_b, dust_b) = get_reward(users[user].getBalanceAtEpoch("a", epoch), start_token_total_supply, b_token.rewards[epoch])
             print("Gained B ratio")
             print(gained_b / b_token.rewards[epoch])
 
-            (gained_b_emission, dust_b_emission) = get_emission(gained_b, b_token.total_supply[epoch], b_token.emissions[epoch])
+            users[user].addBalanceAtEpoch("b", epoch, gained_b)
+
+            (gained_b_emission, dust_b_emission) = get_emission(users[user].getBalanceAtEpoch("b", epoch), b_token.total_supply[epoch], b_token.emissions[epoch])
+
+            ## TODO: Update user Balance for B with B'
+            users[user].addBalanceAtEpoch("b", epoch, gained_b_emission)
 
             print("Gained B Emissions Ratio")
             print(gained_b_emission / b_token.emissions[epoch])
+
+            ## TODO: Port over balances to next epoch
 
             total_rewards += gained_b
             total_emissions += gained_b_emission
@@ -1613,6 +1635,13 @@ def main():
             ## TODO: Port over for next epoch
         
         ## End of epoch recap
-        print("Fairness / Distribution Ratio")
-        print(total_rewards / b_token.rewards[epoch])
-        print(total_emissions / b_token.emissions[epoch])
+        print("Fairness / Distribution Ratio for Epoch", epoch)
+        rewards_ratio = total_rewards / b_token.rewards[epoch]
+        b_emissions_ratio = total_emissions / b_token.emissions[epoch]
+        print(rewards_ratio)
+        print(b_emissions_ratio)
+
+        
+    
+        assert rewards_ratio == 1
+        assert b_emissions_ratio == 1
