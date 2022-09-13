@@ -60,6 +60,8 @@ Where B and B' are not all for the depositors of A
   - TODO: Rewrite all code to use list of tokens to make the random case more complicated
   - TODO Create notation for generalized claiming
   - TODO Solve cross claims math with virtual accounts
+
+  - TODO: Reconcile the vars below to make it so they are used as expected
 """
 
 ## Should we use randomness or use just the values provided?
@@ -127,10 +129,6 @@ SHOULD_PRINT = ROUNDS == 1
 def print_if(v):
     if SHOULD_PRINT:
         print(v)
-
-
-
-
 
 
 def get_circulating_supply_at_epoch(total_supply, rewards, emissions, epoch, claim_depth):
@@ -416,10 +414,18 @@ The sum of all partial claims will be equal to the total claim (minus rounding d
 
     D -> B ??? TODO: This is where problem arise
 
+
+    ## NOTE: Minimal Problem Statement
+    D -> B -> D
+
     ## RULE: We must revert if you claim the same pair / path twice
 
     ## What happens if something is a recursive sub path of something else
     ## What math would help?
+
+    (B -> C)*
+
+    B -> C
 """
 
 ## Vault / Token Notation | TokenData
@@ -554,7 +560,6 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
 
         if(with_emission):
             ## Emission and reward math is same, TODO: deal with it
-
             emission = (
                 (int(random() * reward_range) + min_reward) * 10**decimals
                 if not determinsitic
@@ -567,42 +572,43 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
     
     return Token(name, balances, rewards, emissions, total_supply, noise)
 
-## Claim Sequence Notation | ClaimSequence
 
+## ClaimPair Notation
 """
-    tokens{
-        [id]: TokenData
-    }
+(Vault, Token)
 
-    ## Linked list like data structure
-    claimSequence[start, 
-                            next, 
-                            next,   next (TODO)
-                            next,   next, 
-                                    next
-    ]
+isReward if Vault != Token
 
-    claimSequence(start, claimData[])
+isEmission if Vault == Token
 
-    claimData {
-        Tokens: [address, bool], ## Rewards to claim, and should we claim emissions as well?
-        Next: claimData[]
-    }
-    
-    Classic Linked List
-    TODO: Check Austin's work
-    https://medium.com/coinmonks/linked-lists-in-solidity-cfd967af389b
+This allows us to write the whole claim loop as
+do_claim(ClaimPair[], epochStart, epochEnd)
 
+Which will call for i = epochStart; i < epochEnd
+do_claim(Vs, ClaimPair[], epoch_i)
 
-    received{
-        [id]: 
-            [user]:
-                {
-                    rewards[epoch]
-                    emissions[epoch]
-                }   
-    }
+Which calls
+for n = 0; n < claimPair.length
+do_claim(Vs, claimPair_n, epoch_i)
+
+Where Vs is the Virtual State of balances accrued
+claimPair[] is the list of all claimPair, all pairs are unique at this time (no crossing)
+TODO: Figure out Crossing
+
+Uniqueness of claims
+We can track it via claimed[epoch][vault][token]
+Which we can sim in Python via
+claimed = [keccak(epoch + vault + token)] where + is the string concatenation operator and keccak is SHA256
+Verifying uniqueness of claim in python is trivial
+
+Interestingly enough, for gas purposes it may be cheaper to use the same technique in Solidity and then Zero Out all arrays for balances, 
+making claims cheaper by deleting your balance.
+
+Downside is if you don't claim exhaustively in one go, you will lose a lot of value potentially
+
+Upside is I think this eliminates one storage slot for all claims so that's pretty huge (20k per epoch)
 """
+
 
 def get_random_user_start_balance():
     balance = (
@@ -616,6 +622,14 @@ def get_random_user_start_balance():
 
 
 class UserBalances:
+    """
+        start_token
+        tokens
+        epochs
+
+        Just use `getBalanceAtEpoch`
+        Which also updates the balance from old epoch
+    """
     def __init__(self, start_token, tokens, epochs):
         ## Create empty token balances
         empty_balance = []
@@ -684,7 +698,7 @@ class ClaimData:
         self.next = next
 
 def create_claim_sequence():
-    ## TODO: Generalize
+    ## TODO: rewrite
 
     ## For now just return A -> B -> B' -> C -> C'
     a = TokenClaimData("a", False)
