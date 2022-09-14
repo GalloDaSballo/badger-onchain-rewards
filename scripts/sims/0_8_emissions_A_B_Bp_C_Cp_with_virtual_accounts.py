@@ -786,6 +786,18 @@ def create_claim_sequence(epoch_count, start: str):
         ## C -> C'
         pairs.append(ClaimPair("c", "c", epoch))
 
+        ## NOTE: Sim breaks if you have 2 tokens claiming same token
+        ## Prob because noise claims twice or similar
+
+        ## B -> D
+        # pairs.append(ClaimPair("b", "d", epoch))
+        
+        # ## C -> D
+        # pairs.append(ClaimPair("c", "d", epoch))
+        
+        # ## D -> D'
+        # pairs.append(ClaimPair("d", "d", epoch))
+
     return pairs
     
 
@@ -903,7 +915,7 @@ def main():
 
     ## Then use the claim sequence to verify that the claimed is correct / appropriate
 
-    users = create_users(epoch_count, user_count, start_token, ["b", "c"])
+    users = create_users(epoch_count, user_count, start_token, ["b", "c", "d"])
 
     ## Create users + tokens from the claim sequence
     ## Then get the total Supply
