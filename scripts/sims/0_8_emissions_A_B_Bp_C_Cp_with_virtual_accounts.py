@@ -63,7 +63,7 @@ Where B and B' are not all for the depositors of A
   - Use the functions for B -> C
   - Add Noise back in
 
-  - TODO: Rewrite all code to use list of tokens to make the random case more complicated
+  - Rewrite all code to use list of tokens to make the random case more complicated
   - Create notation for generalized claiming
   - TODO Solve cross claims math with virtual accounts
 
@@ -765,6 +765,13 @@ def create_claim_sequence(epoch_count, start: str):
     pairs = []
 
     ## TODO: Make this completely random
+    """
+        Generate Start Sequence
+        Rest is: has_emissions
+        Then a value to stop
+        And a way to give a unique name for each token
+        For now no crossing as I believe that will break the system
+    """
 
     for epoch in range(epoch_count):
         ## A -> B
@@ -780,9 +787,6 @@ def create_claim_sequence(epoch_count, start: str):
         pairs.append(ClaimPair("c", "c", epoch))
 
     return pairs
-
-
-    ## TODO: Generate random options / use random options to create random claim order
     
 
 def is_valid_sequence(sequence: list, vault: str):
@@ -884,7 +888,7 @@ def main():
     epoch_count = 3
     user_count = 3
     min_shares = MIN_SHARES
-    shares_range = MIN_SHARES ## TODO
+    shares_range = MIN_SHARES 
     decimals = SHARES_DECIMALS
     deterministic = True
 
@@ -904,21 +908,6 @@ def main():
     ## Create users + tokens from the claim sequence
     ## Then get the total Supply
     tokens = create_tokens_from_sequence(seq, start_token, epoch_count, users, min_shares, shares_range, decimals, deterministic)
-
-    print(tokens)
-
-    ## TODO: Make it real
-    b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, deterministic)
-
-    print("b_token.noise", b_token.noise)
-
-    print("tokens[0].total_supply", tokens["a"].total_supply)
-    print("tokens[0].emissions", tokens["a"].emissions)
-    print("tokens[1].emissions", tokens["b"].emissions)
-    print("tokens[1].rewards", tokens["b"].rewards)
-    print("tokens[1].noise", tokens["b"].noise)
-    print(epoch_count)
-
 
     ## Solution -> Make first token just like others
     ## It's not special, with the exception that it will never has self
