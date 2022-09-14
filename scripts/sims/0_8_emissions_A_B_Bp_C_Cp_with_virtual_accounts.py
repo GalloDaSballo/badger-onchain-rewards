@@ -24,9 +24,13 @@ This Simulates A -> B -> B'
 Where B and B' are not all for the depositors of A
 
   Token A can be Self-emitting or not (shouldn't matter) - TotalPoints
-  (TODO: Math to prove self-emitting is reduceable to this case)
-
   
+  Math to prove self-emitting is reduceable to this case
+  Token A Self-Emitting doesn't matter as long as:
+  A -> A' is always claimed first and calculates total supply as A - A'
+  A -> B uses Total A
+  
+
   Token B self emits, is also emitted by Vault β and some people hold token B
   - VAULT_B_REWARDS_TO_A
   - VAULT_B_SELF_EMISSIONS
@@ -60,7 +64,7 @@ Where B and B' are not all for the depositors of A
   - Add Noise back in
 
   - TODO: Rewrite all code to use list of tokens to make the random case more complicated
-  - TODO Create notation for generalized claiming
+  - Create notation for generalized claiming
   - TODO Solve cross claims math with virtual accounts
 
   - TODO: Reconcile the vars below to make it so they are used as expected
@@ -475,6 +479,45 @@ class Token:
         self.noise = noise
 
 
+def create_tokens_from_sequence(seq, start_token, epoch_count, users, min_reward, reward_range, decimals, deterministic):
+    temp_seq = deepcopy(seq)
+
+    ## TODO: Potentially can extend sim to only have emissions / rewards if present in the claim sequence
+    ## However we will always create emissions and rewards for each epoch as we assume:
+    ## Token is either emititng or not
+    ## Token is either reward or not
+    ## All tokens always emit / reward for all epochs (even if values are different)
+    ## Epoch length is the same for all
+
+    rewards = []
+    emissions = []
+
+    while len(temp_seq) > 0:
+        next: ClaimPair  = temp_seq.pop(0)
+
+        ## Handle emissions and tokens
+        if next.vault == next.token:
+            ## This is an emission
+            if next.token not in rewards:
+                rewards.append(next.token)
+        else:
+            ## This is a reward
+            if next.token not in emissions:
+                emissions.append(next.token)
+
+    ## Create Tokens which are rewards, if not
+    tokens = {}
+
+    tokens[start_token] = create_start(users)
+    print("total_epochs", epoch_count)
+
+    for token in rewards:
+        tokens[token] = create_reward_token(token, epoch_count, min_reward, reward_range, decimals, deterministic, token in emissions)
+    
+    return tokens
+        
+
+
 def create_start(users):
 
     ## Start is always a token that is not a reward nor an emission
@@ -517,18 +560,20 @@ def create_start(users):
     return Token("a", balances, rewards, emissions, total_supply)
 
 
-def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, determinsitic, with_emission = True):
+def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, deterministic, with_emission = True):
     ## Reward means no emissions
     ## Add the flip somewhere else
+
+    print("Creating token", name, epoch_count)
     
-    balances = []
-    rewards = []
+    balances = [0]
+    rewards = [0]
     emissions = [0]
     total_supply = [0]
 
     ## Balances that are entitled to emissions and not reward
     ## Can just be a single amount per epoch as you can imagine the vector or holders and sum it up to one user
-    noise = []
+    noise = [0]
 
     for epoch in range(epoch_count):
         balances.append([]) ## 0
@@ -542,7 +587,7 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
         ## Create reward always
         reward = (
             (int(random() * reward_range) + min_reward) * 10**decimals
-            if not determinsitic
+            if not deterministic
             else min_reward * 10**decimals
         )
         rewards[epoch] = reward
@@ -557,7 +602,7 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
             ## We port it over for math later
             noise_bal = (
                 (int(random() * reward_range) + min_reward) * 10**decimals
-                if not determinsitic
+                if not deterministic
                 else min_reward * 10**decimals
             )
             noise[epoch] = noise_bal
@@ -570,7 +615,7 @@ def create_reward_token(name, epoch_count, min_reward, reward_range, decimals, d
             ## Emission and reward math is same, TODO: deal with it
             emission = (
                 (int(random() * reward_range) + min_reward) * 10**decimals
-                if not determinsitic
+                if not deterministic
                 else min_reward * 10**decimals
             )
             emissions[epoch] = emission
@@ -716,8 +761,10 @@ def keccak(value):
     return sha256(value)
 
 
-def create_claim_sequence(start: str, epoch_count):
+def create_claim_sequence(epoch_count, start: str):
     pairs = []
+
+    ## TODO: Make this completely random
 
     for epoch in range(epoch_count):
         ## A -> B
@@ -738,7 +785,7 @@ def create_claim_sequence(start: str, epoch_count):
     ## TODO: Generate random options / use random options to create random claim order
     
 
-def is_valid_sequence(vault: str, sequence: list):
+def is_valid_sequence(sequence: list, vault: str):
     pairs_already_done = []
 
     ## keccak(sequence.vault, sequence.token, sequence.epoch)
@@ -833,66 +880,44 @@ def get_emission(balance, total_supply, emissions):
     ## As our divisor is not relative to the value
 """
 
-def fairness_check(user_count, epoch_count, balances, total_supply, received_rewards, total_rewards, received_emissions, total_emissions):
-
-    for user in range(user_count):
-        for epoch in range(epoch_count):
-            check_fair_received(balances[epoch][user], total_supply, received_rewards[epoch], total_rewards[epoch], received_emissions[epoch], total_emissions[epoch])
-
-    ## TODO: Sum it all up
-
-    ## Is the sum of all tokens fair as well?
-
-
-def check_fair_received(balance, total_supply, received_reward, total_rewards, received_emission, total_emissions):
-
-    expected_percent = balance / total_supply
-
-    ## TODO: Change to allow dust
-    assert total_rewards / received_reward == expected_percent
-    assert received_emission / total_emissions == expected_percent
-
-    ## Maybe just check on sum, although I think it will always need to be the correct ratio
-
-
 def main():
-
-
-
-
     epoch_count = 3
     user_count = 3
     min_shares = MIN_SHARES
     shares_range = MIN_SHARES ## TODO
     decimals = SHARES_DECIMALS
-    determinsitic = True
+    deterministic = True
 
     start_token = "a"
-    seq = create_claim_sequence(start_token, epoch_count)
+    seq = create_claim_sequence(epoch_count, start_token)
     ## NOTE: Tested to work
-    assert is_valid_sequence(start_token, deepcopy(seq))
+    assert is_valid_sequence(deepcopy(seq), start_token)
 
-    ## Create users + tokens from the claim sequence
-    ## Then get the total Supply
+
 
     ## Then use the claim sequence to loop over the tokens and claim them each epoch
 
     ## Then use the claim sequence to verify that the claimed is correct / appropriate
 
     users = create_users(epoch_count, user_count, start_token, ["b", "c"])
-    start_token_total_supply = get_token_total_supply(users, start_token)
+
+    ## Create users + tokens from the claim sequence
+    ## Then get the total Supply
+    tokens = create_tokens_from_sequence(seq, start_token, epoch_count, users, min_shares, shares_range, decimals, deterministic)
+
+    print(tokens)
 
     ## TODO: Make it real
-    a_token = create_start(users)
-    b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, determinsitic)
-    c_token = create_reward_token("c", epoch_count, min_shares, shares_range, decimals, determinsitic)
+    b_token = create_reward_token("b", epoch_count, min_shares, shares_range, decimals, deterministic)
 
-    ## TODO: Most likely need to index by name else how do we get it programmatically?
-    tokens = {
-        "a": a_token,
-        "b": b_token,
-        "c": c_token,
-    }
+    print("b_token.noise", b_token.noise)
+
+    print("tokens[0].total_supply", tokens["a"].total_supply)
+    print("tokens[0].emissions", tokens["a"].emissions)
+    print("tokens[1].emissions", tokens["b"].emissions)
+    print("tokens[1].rewards", tokens["b"].rewards)
+    print("tokens[1].noise", tokens["b"].noise)
+    print(epoch_count)
 
 
     ## Solution -> Make first token just like others
@@ -962,6 +987,7 @@ def main():
 
                     if epoch + 1 < epoch_count:
                         ## Port over old balance as well
+                        print("")
                         out_token.noise[epoch + 1] = out_token.noise[epoch]
                     
                     total_emissions_token += gained_emission_from_noise
