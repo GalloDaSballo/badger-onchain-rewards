@@ -52,7 +52,7 @@ DAMPENER = 1_000 ## 10% of the token is circulating hence the math will be MAX_B
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-ROUNDS = 100
+ROUNDS = 10_000
 
 def main():
   do_sum()
