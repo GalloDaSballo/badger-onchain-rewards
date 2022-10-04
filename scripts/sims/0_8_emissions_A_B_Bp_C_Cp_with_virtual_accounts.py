@@ -799,6 +799,113 @@ def create_claim_sequence(epoch_count, start: str):
         # pairs.append(ClaimPair("d", "d", epoch))
 
     return pairs
+
+
+## CROSSING
+
+"""
+    We're crossing if for any reward A and reward B
+    A -> B
+    B -> A
+
+    Both of these A -> B, B -> A type claims will have a:
+    - Non recursive portion
+    - Rescursive portion
+
+
+    The non-recursive portion, whether it's A -> B or A -> B' (A -> B*)
+    is irrelevant, as it can be calculated in the "normal way"
+
+    Hence the main technical issue will be to establish the "claiming balance" while maintaining a total balance
+
+    claiming balance for all cases beside the recursive is the total amount
+    claiming balance for the recursive case is:
+    claim_recursive(prev) if prev exists
+    claim_non_recursive() when starting
+
+    Meaning that if we have the scenario
+    1) A -> B -> Recursing (A -> B)
+    and
+    2) B -> A -> (recursing B -> A)
+
+    The sum of the claims is:
+    1) 
+        initial_res = claim_non_recursive(A -> B)
+        total = initial_res + claim_recursive(initial_res, B -> A)
+    
+    2) 
+        initial_res = claim_non_recursive(B -> A)
+        total = initial_res + claim_recursive(initial_res, A -> B)
+
+
+    Generalizing the terminology to X -> Y
+
+    initial_res is equal to % of circulating supply for the X we just claimed
+    Meaning it's the total_balance / circulating_supply
+    
+    Given that we know that that's ratio is the amount we'll receive of Y we'll receive from X
+    Given that we know that that's the ratios of X we'll from from Y
+
+    Initial Ratio:
+    x/Tx
+
+    Recursive ratio:
+    x/Tx * y/Cy
+
+
+    TODO NOTE: Counterexample Problem
+    If you own 100% then you're gonna have 100%
+    This may break the recursive math as it will give you more than what you'd expect
+    -> (1/1)^Infinite is 1. So the 100% case is 1/1 = 1
+
+
+    HUNCH:
+    Given starting value (which is a ratio of total supply)
+    I can always exponentiate to infinity
+    Get the "exponentiated ratio" and use that to calculate % of rewards
+
+    OR
+    The result of the exponentiation is the amount of rewards, meaning it's already implicit
+
+
+    ------
+
+    Initial Ratio r (in bps)
+    Received by usual math
+
+    Received Y
+    y_1 = Y * r / MAX_BPS
+
+    Received X from y_1
+    x_1 = y_1 / Y * X
+
+    Received Y from x_1
+    y_2 = x_1 / X * Y
+
+    Received X from y_2
+    x_2 = y_2 / Y * X
+
+    Sum of received x
+    SUM_0_infinity(x_i)
+    where x_i =  y_i / Y * X
+
+    Sum of received y
+    SUM_0_infinity(y_i)
+    where y_i = x_i_-1 / X * Y if i > 0
+    and Y * r / MAX_BPS for if i = 0
+
+    Sum of x and y
+    Y * r / MAX_BPS + SUM_0_infinity(
+        if(i = 0) {
+            y = Y * r / MAX_BPS
+        } else {
+            y = x_i_-1 / X * Y 
+        }
+        x_i =  y_i / Y * X
+    )
+
+    TODO: Just bruteforce a sim to see what happens
+"""
     
 
 def is_valid_sequence(sequence: list, vault: str):
@@ -897,8 +1004,8 @@ def get_emission(balance, total_supply, emissions):
 """
 
 def main():
-    epoch_count = 3
-    user_count = 3
+    epoch_count = 60
+    user_count = 60
     min_shares = MIN_SHARES
     shares_range = MIN_SHARES 
     decimals = SHARES_DECIMALS
