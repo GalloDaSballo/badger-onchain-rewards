@@ -10,9 +10,9 @@ from random import random
         if(i = 0) {
             y = REWARDS_Y * r / MAX_BPS
         } else {
-            y = x_i_-1 / CIRCULATING_X * REWARDS_Y
+            y = x_i_-1 / TOTAL_SUPPLY_X * REWARDS_Y
         }
-        x_i =  y_i / CIRCULATING_Y * REWARDS_X
+        x_i =  y_i / TOTAL_SUPPLY_Y * REWARDS_X
     )
 
     TODO: Just bruteforce a sim to see what happens
