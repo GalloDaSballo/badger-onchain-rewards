@@ -55,17 +55,15 @@ REWARDS_X = random() * 1000 * 1e18
 REWARDS_Y = random() * 1000 * 1e18
 ## TODO: If we set rewards to way higher we do get reverts, I think it's due to the Circulating vs Rewards math
 ## Meaning we must divide by total supply as we must assume all tokens are circulating in an infinite recursion
-
+## TODO: There are situations where we give too much rewards, need to figure that out
 ## TODO: Add to check
 TOTAL_SUPPLY_X = CIRCULATING_X + REWARDS_X
 TOTAL_SUPPLY_Y = CIRCULATING_Y + REWARDS_Y
 
-DAMPENER = 1_000 ## 10% of the token is circulating hence the math will be MAX_BPS-dampener
-
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-ROUNDS = 10
+ROUNDS = 10 ## TODO: Cannot go too high as exponentiation Overflows
 
 def main():
   do_sum()
@@ -86,7 +84,9 @@ def do_sum():
   last_x = 0
 
   for i in range(ROUNDS):
-    if (i > 0 and (last_y == 0 or last_x == 0)):
+    i = i + 1
+    print("** Round ** ", i)
+    if (i - 1 > 0 and (last_y == 0 or last_x == 0)):
       print("We're at 0, we're done")
       return
 
@@ -99,7 +99,8 @@ def do_sum():
     # assert new_last_x < last_x
 
     ## ISSUE WITH OVERFLOW
-    from_theoretical_formula_x = (start_x * REWARDS_X ** (i + 1) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i + 1))
+    # from_theoretical_formula_x = (start_x * REWARDS_X ** (i + 1) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i + 1))
+    from_theoretical_formula_x = start_x * REWARDS_X ** (i) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) / TOTAL_SUPPLY_Y ** (i)
     print("from_theoretical_formula_x", from_theoretical_formula_x)
 
     ## They are the same approx by 1^-18
@@ -113,7 +114,8 @@ def do_sum():
 
     new_last_y = last_x / TOTAL_SUPPLY_X * REWARDS_Y
 
-    from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
+    # from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
+    from_theoretical_formula_y =  (start_x * REWARDS_X ** (i - 1)) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) /  TOTAL_SUPPLY_Y ** (i - 1)
     print("new_last_y", new_last_y)
     print("last_y", last_y)
     print("from_theoretical_formula_y", from_theoretical_formula_y)
