@@ -27,12 +27,25 @@ from random import random
     x_1 = y_1 / Y * X
 
     Received Y from x_1
-    y_2 = x_1 / X * Y
+    y_2 = x_1 / TOTAL_SUPPLY_X * Y
+
+    x_2 = y_2 / TOTAL_SUPPLY_Y * X
+    y_3 = x_2 / TOTAL_SUPPLY_X * Y
+
+
+    y_2 = x_1 / TOTAL_SUPPLY_X * Y
+    y_2 = (y_1 / TOTAL_SUPPLY_Y * X) / TOTAL_SUPPLY_X * Y
+    y_2 = ((Y * r / MAX_BPS) / TOTAL_SUPPLY_Y * X) / TOTAL_SUPPLY_X * Y
+    y_2 = ((Y * x_0 / TOTAL_SUPPLY_X) / TOTAL_SUPPLY_Y * X) / TOTAL_SUPPLY_X * Y
+    
+  
+
+    TODO: Find linear form
 
 """
 
 MAX_BPS = 10_000
-DECIMALS = 18
+DECIMALS = 1 ## Issue with Infinity with 18 decimals and exponentiation
 
 CIRCULATING_X = random() * 1000 * 1e18
 CIRCULATING_Y = random() * 1000 * 1e18
@@ -52,7 +65,7 @@ DAMPENER = 1_000 ## 10% of the token is circulating hence the math will be MAX_B
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-ROUNDS = 10_000
+ROUNDS = 10
 
 def main():
   do_sum()
@@ -85,13 +98,26 @@ def do_sum():
     # assert new_last_x != last_x
     # assert new_last_x < last_x
 
+    ## ISSUE WITH OVERFLOW
+    from_theoretical_formula_x = (start_x * REWARDS_X ** (i + 1) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i + 1))
+    print("from_theoretical_formula_x", from_theoretical_formula_x)
+
+    ## They are the same approx by 1^-18
+    assert new_last_x / from_theoretical_formula_x < 1e18
+
+
+
     last_x = new_last_x
 
     x += last_x
 
     new_last_y = last_x / TOTAL_SUPPLY_X * REWARDS_Y
+
+    from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
     print("new_last_y", new_last_y)
     print("last_y", last_y)
+    print("from_theoretical_formula_y", from_theoretical_formula_y)
+    assert from_theoretical_formula_y / new_last_y < 1e18
     ## Avoid infinite recursion
     # assert new_last_y != last_y
     # assert new_last_y < last_y
