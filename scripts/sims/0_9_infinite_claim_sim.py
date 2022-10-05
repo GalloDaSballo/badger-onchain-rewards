@@ -130,6 +130,12 @@ def do_sum():
     print("last_y / Y", last_y / REWARDS_Y)
   
 
+  print("CIRCULATING_X", CIRCULATING_X)
+  print("CIRCULATING_Y", CIRCULATING_Y)
+  print("REWARDS_X", REWARDS_X)
+  print("REWARDS_Y", REWARDS_Y)
+  
+
   print("y", y)
   print("REWARDS_Y", REWARDS_Y)
   assert y <= REWARDS_Y
