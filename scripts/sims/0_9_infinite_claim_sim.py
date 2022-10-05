@@ -51,22 +51,28 @@ CIRCULATING_X = random() * 1000 * 1e18
 CIRCULATING_Y = random() * 1000 * 1e18
 # REWARDS_X = 100000 * 1e18
 # REWARDS_Y = 100000 * 1e18
-REWARDS_X = random() * 1000 * 1e18
-REWARDS_Y = random() * 1000 * 1e18
+
+## TODO: When one of rewards is higher than Circulating, it always gives out more rewards than expected
+REWARDS_X = random() * 100000000000 * 1e18
+REWARDS_Y = random() * 100000000000 * 1e18
 ## TODO: If we set rewards to way higher we do get reverts, I think it's due to the Circulating vs Rewards math
 ## Meaning we must divide by total supply as we must assume all tokens are circulating in an infinite recursion
 ## TODO: There are situations where we give too much rewards, need to figure that out
 ## TODO: Add to check
 TOTAL_SUPPLY_X = CIRCULATING_X + REWARDS_X
+assert TOTAL_SUPPLY_X > REWARDS_X
 TOTAL_SUPPLY_Y = CIRCULATING_Y + REWARDS_Y
+assert TOTAL_SUPPLY_Y > REWARDS_Y
 
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-ROUNDS = 10 ## TODO: Cannot go too high as exponentiation Overflows
+TESTS = 100_000 ## How many sims to run
+SIM_ROUNDS = 100_000 ## NOTE: Exponentiation test stops at 10 rounds due to Overflow
 
 def main():
-  do_sum()
+  for x in range(TESTS):
+    do_sum()
 
 def do_sum():
   x = 0
@@ -83,7 +89,7 @@ def do_sum():
   last_y = y
   last_x = 0
 
-  for i in range(ROUNDS):
+  for i in range(SIM_ROUNDS):
     i = i + 1
     print("** Round ** ", i)
     if (i - 1 > 0 and (last_y == 0 or last_x == 0)):
@@ -91,20 +97,21 @@ def do_sum():
       return
 
     
-    new_last_x = last_y / TOTAL_SUPPLY_Y * REWARDS_X
+    new_last_x = last_y * REWARDS_X // TOTAL_SUPPLY_Y 
     print("new_last_x", new_last_x)
     print("last_x", last_x)
     ## Avoid infinite recursion
     # assert new_last_x != last_x
     # assert new_last_x < last_x
 
-    ## ISSUE WITH OVERFLOW
+    ## TODO: Make this work for all i
     # from_theoretical_formula_x = (start_x * REWARDS_X ** (i + 1) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i + 1))
-    from_theoretical_formula_x = start_x * REWARDS_X ** (i) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) / TOTAL_SUPPLY_Y ** (i)
-    print("from_theoretical_formula_x", from_theoretical_formula_x)
+    if(i < 10):
+      from_theoretical_formula_x = start_x * REWARDS_X ** (i) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) / TOTAL_SUPPLY_Y ** (i)
+      print("from_theoretical_formula_x", from_theoretical_formula_x)
+      ## They are the same approx by 1^-18
+      assert new_last_x / from_theoretical_formula_x < 1e18
 
-    ## They are the same approx by 1^-18
-    assert new_last_x / from_theoretical_formula_x < 1e18
 
 
 
@@ -112,14 +119,16 @@ def do_sum():
 
     x += last_x
 
-    new_last_y = last_x / TOTAL_SUPPLY_X * REWARDS_Y
+    new_last_y = last_x * REWARDS_Y // TOTAL_SUPPLY_X
 
-    # from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
-    from_theoretical_formula_y =  (start_x * REWARDS_X ** (i - 1)) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) /  TOTAL_SUPPLY_Y ** (i - 1)
-    print("new_last_y", new_last_y)
-    print("last_y", last_y)
-    print("from_theoretical_formula_y", from_theoretical_formula_y)
-    assert from_theoretical_formula_y / new_last_y < 1e18
+    ## TODO: Make this work for all i
+    if(i < 10):
+      # from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
+      from_theoretical_formula_y =  (start_x * REWARDS_X ** (i - 1)) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) /  TOTAL_SUPPLY_Y ** (i - 1)
+      print("new_last_y", new_last_y)
+      print("last_y", last_y)
+      print("from_theoretical_formula_y", from_theoretical_formula_y)
+      assert from_theoretical_formula_y / new_last_y < 1e18
     ## Avoid infinite recursion
     # assert new_last_y != last_y
     # assert new_last_y < last_y
