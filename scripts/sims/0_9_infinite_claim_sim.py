@@ -47,14 +47,14 @@ from random import random
 MAX_BPS = 10_000
 DECIMALS = 1 ## Issue with Infinity with 18 decimals and exponentiation
 
-CIRCULATING_X = random() * 1000 * 1e18
-CIRCULATING_Y = random() * 1000 * 1e18
+CIRCULATING_X = random() * 1000 * 1e5
+CIRCULATING_Y = random() * 1000 * 1e5
 # REWARDS_X = 100000 * 1e18
 # REWARDS_Y = 100000 * 1e18
 
 ## TODO: When one of rewards is higher than Circulating, it always gives out more rewards than expected
-REWARDS_X = random() * 100000000000 * 1e18
-REWARDS_Y = random() * 100000000000 * 1e18
+REWARDS_X = random() * 1000 * 1e18
+REWARDS_Y = random() * 1000 * 1e18
 ## TODO: If we set rewards to way higher we do get reverts, I think it's due to the Circulating vs Rewards math
 ## Meaning we must divide by total supply as we must assume all tokens are circulating in an infinite recursion
 ## TODO: There are situations where we give too much rewards, need to figure that out
@@ -67,8 +67,8 @@ assert TOTAL_SUPPLY_Y > REWARDS_Y
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-TESTS = 100_000 ## How many sims to run
-SIM_ROUNDS = 100_000 ## NOTE: Exponentiation test stops at 10 rounds due to Overflow
+TESTS = 1000 ## How many sims to run
+SIM_ROUNDS = 1000 ## NOTE: Exponentiation test stops at 10 rounds due to Overflow
 
 def main():
   for x in range(TESTS):
@@ -78,12 +78,12 @@ def do_sum():
   x = 0
   y = 0
 
-  ## First round here
-  y = r / MAX_BPS * REWARDS_Y ## First Claim
-  print("first round y", y)
-
   ## `r`` implies this
-  start_x = r / MAX_BPS * TOTAL_SUPPLY_X
+  start_x = r / MAX_BPS * CIRCULATING_X
+
+  ## First round here
+  y = start_x * REWARDS_Y // TOTAL_SUPPLY_X  ## First Claim
+  print("first round y", y)
 
   ## To retrieve prev value, TODO: Use array to store all values
   last_y = y
@@ -137,6 +137,7 @@ def do_sum():
     y += last_y
     print("last_y", last_y)
     print("last_y / Y", last_y / REWARDS_Y)
+
   
 
   print("CIRCULATING_X", CIRCULATING_X)
@@ -158,9 +159,6 @@ def do_sum():
   print("x", x)
   print("REWARDS_X + start_x", REWARDS_X + start_x)
   assert x < REWARDS_X + start_x
-
-  
-
 
 
 
