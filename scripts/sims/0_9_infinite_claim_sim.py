@@ -40,7 +40,15 @@ from random import random
     
   
 
-    TODO: Find linear form
+    Linear Form
+    -> See Python
+    -> TODO: Rewrite and put on paper or smth
+    TODO: Figure out exactly what formula to use, see python rounding vs non-round
+    We need exact formula, 1 value approx is not acceptable
+
+    ## HOW DO WE PROVE LIMIT CONVERGES?
+    -> Demonstrate r < 1
+    -> Take the limit and simplify
 
 """
 
@@ -107,10 +115,11 @@ def do_sum():
     ## TODO: Make this work for all i
     # from_theoretical_formula_x = (start_x * REWARDS_X ** (i + 1) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i + 1))
     if(i < 10):
-      from_theoretical_formula_x = start_x * REWARDS_X ** (i) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) / TOTAL_SUPPLY_Y ** (i)
+      from_theoretical_formula_x = start_x * REWARDS_X ** (i + 1) / (TOTAL_SUPPLY_X ** (i + 1)) * REWARDS_Y ** (i + 1) // TOTAL_SUPPLY_Y ** (i + 1)
       print("from_theoretical_formula_x", from_theoretical_formula_x)
       ## They are the same approx by 1^-18
-      assert new_last_x / from_theoretical_formula_x < 1e18
+      ## -1 as we have a rounding error due to single floor due to issue with exponentiation overflow
+      assert (new_last_x == from_theoretical_formula_x or new_last_x == from_theoretical_formula_x - 1)
 
 
 
@@ -124,11 +133,11 @@ def do_sum():
     ## TODO: Make this work for all i
     if(i < 10):
       # from_theoretical_formula_y =  (start_x * REWARDS_X ** (i) * REWARDS_Y ** (i + 1)) / (TOTAL_SUPPLY_X ** (i + 1) * TOTAL_SUPPLY_Y ** (i))
-      from_theoretical_formula_y =  (start_x * REWARDS_X ** (i - 1)) / (TOTAL_SUPPLY_X ** (i)) * REWARDS_Y ** (i) /  TOTAL_SUPPLY_Y ** (i - 1)
+      from_theoretical_formula_y =  (start_x * REWARDS_X ** (i)) / (TOTAL_SUPPLY_X ** (i + 1)) * REWARDS_Y ** (i + 1) //  TOTAL_SUPPLY_Y ** (i)
       print("new_last_y", new_last_y)
       print("last_y", last_y)
       print("from_theoretical_formula_y", from_theoretical_formula_y)
-      assert from_theoretical_formula_y / new_last_y < 1e18
+      assert (from_theoretical_formula_y == new_last_y or new_last_y == from_theoretical_formula_y - 1)
     ## Avoid infinite recursion
     # assert new_last_y != last_y
     # assert new_last_y < last_y
