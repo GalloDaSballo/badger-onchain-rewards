@@ -107,7 +107,7 @@ USERS_MIN = 2000
 
 
 ## How many simulations to run?
-ROUNDS = 1_000
+ROUNDS = 1000
 
 ## Should the print_if_if print_if stuff?
 SHOULD_PRINT = ROUNDS == 1
@@ -116,7 +116,6 @@ SHOULD_PRINT = ROUNDS == 1
 def print_if(v):
     if SHOULD_PRINT:
         print_if(v)
-
 
 def multi_claim_sim():
 
@@ -149,7 +148,6 @@ def multi_claim_sim():
 
     claimed_b = []  ## How much did each user get
     points_b = []  ## points_a[user][epoch]
-
     ##### SETUP USER #####
 
     ## Setup for users
@@ -170,7 +168,6 @@ def multi_claim_sim():
         ## Add empty list for points_b
         for epoch in range(number_of_epochs):
             temp_list.append(0)
-
         points_b.append(temp_list)
 
         initial_balances.append(balance)
@@ -229,7 +226,6 @@ def multi_claim_sim():
         ## TODO: B Total Supply Inflated
 
         ## Store them for math late
-
     acc_verify_total_rewards = 0
     acc_verify_total_emissions = 0
     for epoch in range(number_of_epochs):
