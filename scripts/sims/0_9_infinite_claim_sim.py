@@ -47,8 +47,9 @@ from random import random
 MAX_BPS = 10_000
 DECIMALS = 1 ## Issue with Infinity with 18 decimals and exponentiation
 
-CIRCULATING_X = random() * 1000 * 1e5
-CIRCULATING_Y = random() * 1000 * 1e5
+## making start circulation friendly to convergence compared to total supply or rewards, e.g., start ciculation is (1 / 1 Million) of total supply 
+CIRCULATING_X = random() * 0.001 * 1e18
+CIRCULATING_Y = random() * 0.001 * 1e18
 # REWARDS_X = 100000 * 1e18
 # REWARDS_Y = 100000 * 1e18
 
@@ -67,8 +68,8 @@ assert TOTAL_SUPPLY_Y > REWARDS_Y
 r = random() * MAX_BPS
 
 ## Simulates going to infinite
-TESTS = 1000 ## How many sims to run
-SIM_ROUNDS = 1000 ## NOTE: Exponentiation test stops at 10 rounds due to Overflow
+TESTS = 1 ## How many sims to run
+SIM_ROUNDS = 10000000 ## NOTE: Exponentiation test stops at 10 rounds due to Overflow
 
 def main():
   for x in range(TESTS):
@@ -94,7 +95,7 @@ def do_sum():
     print("** Round ** ", i)
     if (i - 1 > 0 and (last_y == 0 or last_x == 0)):
       print("We're at 0, we're done")
-      return
+      break
 
     
     new_last_x = last_y * REWARDS_X // TOTAL_SUPPLY_Y 
@@ -160,5 +161,22 @@ def do_sum():
   print("REWARDS_X + start_x", REWARDS_X + start_x)
   assert x < REWARDS_X + start_x
 
-
+  ## check theoretically the summation limit for rewards
+  ## ref https://en.wikipedia.org/wiki/Geometric_series#Closed-form_formula
+  z_0 = start_x * REWARDS_Y // TOTAL_SUPPLY_X
+  print("z_0", z_0)
+  ab = (REWARDS_X / TOTAL_SUPPLY_Y) * (REWARDS_Y / TOTAL_SUPPLY_X)
+  print("ab", ab)
+  oneMinusAB = 1 - ab
+  print("oneMinusAB", oneMinusAB)
+  sumRewardLimitY = z_0 + (z_0 * ab / oneMinusAB)
+  sumRewardLimitX = (z_0 * REWARDS_X // TOTAL_SUPPLY_Y) / oneMinusAB
+  print("reward summation limit in X=", sumRewardLimitX)
+  print("reward summation limit in Y=", sumRewardLimitY)
+  diffInX = abs(x - sumRewardLimitX) / x
+  diffInY = abs(y - sumRewardLimitY) / y
+  print("difference ratio btw summation limit and simulation for X=", diffInX)
+  print("difference ratio btw summation limit and simulation for Y=", diffInY)
+  assert diffInX < 0.02
+  assert diffInY < 0.02
 
